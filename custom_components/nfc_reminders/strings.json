@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add NFC Reminder",
+        "description": "Create a new NFC-based reminder tracker",
+        "data": {
+          "reminder_name": "Reminder Name",
+          "nfc_tag_id": "NFC Tag ID",
+          "interval": "Reminder Interval",
+          "interval_unit": "Interval Unit"
+        }
+      }
+    },
+    "error": {
+      "name_exists": "A reminder with this name already exists"
+    },
+    "abort": {
+      "already_configured": "This reminder is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update Reminder Settings",
+        "description": "Modify the reminder interval",
+        "data": {
+          "interval": "Reminder Interval",
+          "interval_unit": "Interval Unit"
+        }
+      }
+    }
+  }
+}
