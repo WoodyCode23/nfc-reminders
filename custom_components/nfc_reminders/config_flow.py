@@ -42,9 +42,6 @@ class NFCRemindersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     break
             
             if not errors:
-                # Create the helper entities
-                await self._create_helper_entities(user_input)
-                
                 # Create the config entry
                 return self.async_create_entry(
                     title=reminder_name,
@@ -68,12 +65,6 @@ class NFCRemindersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def _create_helper_entities(self, config):
-        """Create the input_datetime and input_text helper entities."""
-        # Helper creation is now handled in __init__.py
-        # This method is kept for backwards compatibility
-        pass
-        
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):

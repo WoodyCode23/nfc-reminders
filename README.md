@@ -1,4 +1,6 @@
 NFC Reminders for Home Assistant
+Show Image
+Show Image
 
 A Home Assistant custom integration that makes it easy to track recurring tasks using NFC tags. Perfect for tracking litter box cleanings, furnace filter changes, bathroom cleanings, and any other routine maintenance tasks!
 
@@ -128,7 +130,7 @@ Ensure the input_datetime helper entity exists
 Go to Developer Tools → Events and listen to tag_scanned to see if events are firing
 Sensors show "Unknown":
 
-Make sure you created the input_datetime helper first
+Make sure the integration created the input_datetime helper automatically
 Scan the NFC tag at least once
 Verify entity names match (check Settings → Devices & Services → Entities)
 Contributing
