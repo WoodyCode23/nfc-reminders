@@ -18,9 +18,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
 
-    # Create the helper entities automatically
-    await _create_helper_entities(hass, entry)
-
     # Listen for NFC tag scans
     async def handle_tag_scanned(event):
         """Handle NFC tag scanned event."""
@@ -99,32 +96,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove a config entry and associated helpers."""
-    reminder_name = entry.data.get(CONF_REMINDER_NAME)
-    safe_name = reminder_name.lower().replace(" ", "_")
-    
-    # Remove input_datetime helper
-    datetime_entity_id = f"input_datetime.{safe_name}_last_scan"
-    if hass.states.get(datetime_entity_id):
-        await hass.services.async_call(
-            "input_datetime",
-            "remove",
-            {"entity_id": datetime_entity_id},
-            blocking=True,
-        )
-        _LOGGER.info(f"Removed helper entity: {datetime_entity_id}")
-    
-    # Remove input_text helper
-    text_entity_id = f"input_text.{safe_name}_last_cleaned_by"
-    if hass.states.get(text_entity_id):
-        await hass.services.async_call(
-            "input_text",
-            "remove",
-            {"entity_id": text_entity_id},
-            blocking=True,
-        )
-        _LOGGER.info(f"Removed helper entity: {text_entity_id}")
-    
+    """Remove a config entry."""
     # Clean up all created sensors
     entity_reg = er.async_get(hass)
     entries = er.async_entries_for_config_entry(entity_reg, entry.entry_id)
