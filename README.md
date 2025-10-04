@@ -34,28 +34,7 @@ Extract the ZIP file
 Copy the custom_components/nfc_reminders folder to your Home Assistant's custom_components directory
 Restart Home Assistant
 Setup
-Step 1: Create Helper Entities
-Before adding reminders, you need to create the helper entities. Add these to your configuration files:
-
-input_datetime.yaml:
-
-yaml
-your_reminder_name_last_scan:
-  name: Your Reminder Name Last Scan
-  has_date: true
-  has_time: true
-input_text.yaml:
-
-yaml
-your_reminder_name_last_cleaned_by:
-  name: Your Reminder Name Last Cleaned By
-  initial: Unknown
-  max: 50
-Replace your_reminder_name with a snake_case version of your reminder name (e.g., furnace_filter, litter_box_1, etc.)
-
-Restart Home Assistant after adding these.
-
-Step 2: Add the Integration
+Add a Reminder
 Go to Settings → Devices & Services
 Click + Add Integration
 Search for "NFC Reminders"
@@ -65,7 +44,9 @@ NFC Tag ID: Your NFC tag ID (scan a tag first to see the ID in notifications)
 Interval: e.g., 90
 Interval Unit: Choose days, hours, or minutes
 Click Submit
-Step 3: Scan Your NFC Tag
+That's it! The integration will automatically create all the necessary helper entities for you. No YAML editing required!
+
+Scan Your NFC Tag
 Once configured, simply scan your NFC tag near your Home Assistant device. The integration will automatically update the timestamp!
 
 What Gets Created

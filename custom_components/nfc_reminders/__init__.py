@@ -1,431 +1,133 @@
-class NFCReminderCard extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this._reminders = [];
-  }
+"""NFC Reminders Integration."""
+import logging
+from datetime import datetime
 
-  setConfig(config) {
-    if (!config.reminders || !Array.isArray(config.reminders)) {
-      throw new Error('You must define reminders array');
-    }
-    this.config = config;
-    this._reminders = config.reminders;
-    this._groups = config.groups || [];
-    this._useHomeAssistant = config.use_home_assistant_storage || false;
-  }
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
-  set hass(hass) {
-    this._hass = hass;
+from .const import DOMAIN, CONF_NFC_TAG_ID, CONF_REMINDER_NAME
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = ["sensor"]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up NFC Reminders from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = entry.data
+
+    # Create the helper entities automatically
+    await _create_helper_entities(hass, entry)
+
+    # Listen for NFC tag scans
+    async def handle_tag_scanned(event):
+        """Handle NFC tag scanned event."""
+        tag_id = event.data.get("tag_id")
+        
+        # Check if this tag matches our reminder
+        if tag_id == entry.data.get(CONF_NFC_TAG_ID):
+            reminder_name = entry.data.get(CONF_REMINDER_NAME)
+            safe_name = reminder_name.lower().replace(" ", "_")
+            
+            # Update the datetime helper
+            datetime_entity = f"input_datetime.{safe_name}_last_scan"
+            if hass.states.get(datetime_entity):
+                now = datetime.now()
+                await hass.services.async_call(
+                    "input_datetime",
+                    "set_datetime",
+                    {
+                        "entity_id": datetime_entity,
+                        "datetime": now.isoformat()[:19]
+                    },
+                    blocking=True
+                )
+                _LOGGER.info(f"Updated {datetime_entity} after NFC scan")
+
+    hass.bus.async_listen("tag_scanned", handle_tag_scanned)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def _create_helper_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Create input_datetime and input_text helper entities."""
+    reminder_name = entry.data.get(CONF_REMINDER_NAME)
+    safe_name = reminder_name.lower().replace(" ", "_")
     
-    if (!this._subscribed) {
-      this._subscribed = true;
-      this._subscribeToEvents();
-    }
+    # Create input_datetime
+    datetime_entity_id = f"input_datetime.{safe_name}_last_scan"
+    if not hass.states.get(datetime_entity_id):
+        await hass.services.async_call(
+            "input_datetime",
+            "create",
+            {
+                "name": f"{reminder_name} Last Scan",
+                "has_date": True,
+                "has_time": True,
+            },
+            blocking=True,
+        )
+        _LOGGER.info(f"Created helper entity: {datetime_entity_id}")
     
-    this.render();
-  }
+    # Create input_text
+    text_entity_id = f"input_text.{safe_name}_last_cleaned_by"
+    if not hass.states.get(text_entity_id):
+        await hass.services.async_call(
+            "input_text",
+            "create",
+            {
+                "name": f"{reminder_name} Last Cleaned By",
+                "initial": "Unknown",
+                "max": 50,
+            },
+            blocking=True,
+        )
+        _LOGGER.info(f"Created helper entity: {text_entity_id}")
 
-  _subscribeToEvents() {
-    if (!this._hass) return;
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
-    this._hass.connection.subscribeEvents((event) => {
-      this._handleTagScanned(event);
-    }, 'tag_scanned');
-  }
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
 
-  _handleTagScanned(event) {
-    const tagId = event.data.tag_id;
+    return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove a config entry and associated helpers."""
+    reminder_name = entry.data.get(CONF_REMINDER_NAME)
+    safe_name = reminder_name.lower().replace(" ", "_")
     
-    const group = this._groups.find(g => g.tag_id === tagId);
-    if (group) {
-      const timestamp = new Date().toISOString();
-      group.reminder_names.forEach(name => {
-        const reminder = this._reminders.find(r => r.name === name);
-        if (reminder) {
-          this._updateScanTime(reminder, timestamp);
-        }
-      });
-      this.render();
-      return;
-    }
+    # Remove input_datetime helper
+    datetime_entity_id = f"input_datetime.{safe_name}_last_scan"
+    if hass.states.get(datetime_entity_id):
+        await hass.services.async_call(
+            "input_datetime",
+            "remove",
+            {"entity_id": datetime_entity_id},
+            blocking=True,
+        )
+        _LOGGER.info(f"Removed helper entity: {datetime_entity_id}")
     
-    const reminder = this._reminders.find(r => r.nfc_tag === tagId);
-    if (reminder) {
-      this._updateScanTime(reminder, new Date().toISOString());
-      this.render();
-    }
-  }
-
-  _updateScanTime(reminder, timestamp) {
-    if (this._useHomeAssistant && reminder.entity_id && this._hass) {
-      const dateObj = new Date(timestamp);
-      const dateStr = dateObj.toISOString().slice(0, 19);
-      
-      this._hass.callService('input_datetime', 'set_datetime', {
-        entity_id: reminder.entity_id,
-        datetime: dateStr
-      });
-    } else {
-      const storageKey = `nfc_reminder_${reminder.name}`;
-      const scanData = {
-        timestamp: timestamp,
-        count: (this._getScanData(reminder.name).count || 0) + 1
-      };
-      localStorage.setItem(storageKey, JSON.stringify(scanData));
-    }
-  }
-
-  _getScanData(reminderName) {
-    const reminder = this._reminders.find(r => r.name === reminderName);
+    # Remove input_text helper
+    text_entity_id = f"input_text.{safe_name}_last_cleaned_by"
+    if hass.states.get(text_entity_id):
+        await hass.services.async_call(
+            "input_text",
+            "remove",
+            {"entity_id": text_entity_id},
+            blocking=True,
+        )
+        _LOGGER.info(f"Removed helper entity: {text_entity_id}")
     
-    if (this._useHomeAssistant && reminder && reminder.entity_id && this._hass) {
-      const state = this._hass.states[reminder.entity_id];
-      let person = null;
-      
-      if (reminder.person_entity_id) {
-        const personState = this._hass.states[reminder.person_entity_id];
-        if (personState && personState.state && personState.state !== 'unknown' && personState.state !== 'Unknown') {
-          person = personState.state;
-        }
-      }
-      
-      if (state && state.state && state.state !== 'unknown') {
-        return {
-          timestamp: new Date(state.state),
-          count: 0,
-          person: person
-        };
-      }
-    }
+    # Clean up all created sensors
+    entity_reg = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(entity_reg, entry.entry_id)
     
-    const storageKey = `nfc_reminder_${reminderName}`;
-    const data = localStorage.getItem(storageKey);
-    if (!data) return { timestamp: null, count: 0, person: null };
-    try {
-      const parsed = JSON.parse(data);
-      return {
-        timestamp: parsed.timestamp ? new Date(parsed.timestamp) : null,
-        count: parsed.count || 0,
-        person: null
-      };
-    } catch {
-      return { timestamp: null, count: 0, person: null };
-    }
-  }
-
-  _getTimeSince(date) {
-    if (!date) return 'Not scanned';
-    
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    return 'Just now';
-  }
-
-  _formatDateTime(date) {
-    if (!date) return '';
-    
-    const options = { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    };
-    
-    return date.toLocaleString('en-US', options);
-  }
-
-  _isOverdue(reminderName, interval, unit) {
-    const scanData = this._getScanData(reminderName);
-    if (!scanData.timestamp) return false;
-    
-    const now = new Date();
-    const diff = now - scanData.timestamp;
-    
-    let threshold = 0;
-    switch(unit) {
-      case 'days':
-        threshold = interval * 24 * 60 * 60 * 1000;
-        break;
-      case 'hours':
-        threshold = interval * 60 * 60 * 1000;
-        break;
-      case 'minutes':
-        threshold = interval * 60 * 1000;
-        break;
-    }
-    
-    return diff > threshold;
-  }
-
-  _getProgressPercentage(reminderName, interval, unit) {
-    const scanData = this._getScanData(reminderName);
-    if (!scanData.timestamp) return 0;
-    
-    const now = new Date();
-    const diff = now - scanData.timestamp;
-    
-    let threshold = 0;
-    switch(unit) {
-      case 'days':
-        threshold = interval * 24 * 60 * 60 * 1000;
-        break;
-      case 'hours':
-        threshold = interval * 60 * 60 * 1000;
-        break;
-      case 'minutes':
-        threshold = interval * 60 * 1000;
-        break;
-    }
-    
-    const percentage = Math.min((diff / threshold) * 100, 100);
-    return Math.round(percentage);
-  }
-
-  render() {
-    if (!this.config || !this._hass) return;
-
-    this.shadowRoot.innerHTML = `
-      <style>
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
-        
-        :host {
-          display: block;
-        }
-        
-        .card {
-          background: rgba(255, 255, 255, 0.07);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-          padding: 8px;
-          backdrop-filter: blur(10px);
-        }
-        
-        .reminders-list {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        
-        .reminder {
-          background: transparent;
-          border-radius: 8px;
-          padding: 10px 12px;
-          transition: all 0.2s ease;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          min-height: 60px;
-          border-left: 3px solid transparent;
-        }
-        
-        .reminder:hover {
-          background: rgba(255, 255, 255, 0.08);
-        }
-        
-        .reminder.status-good {
-          border-left-color: rgba(16, 185, 129, 0.6);
-        }
-        
-        .reminder.status-good:hover {
-          background: rgba(16, 185, 129, 0.12);
-        }
-        
-        .reminder.status-warning {
-          border-left-color: rgba(245, 158, 11, 0.6);
-        }
-        
-        .reminder.status-warning:hover {
-          background: rgba(245, 158, 11, 0.12);
-        }
-        
-        .reminder.status-overdue {
-          border-left-color: rgba(239, 68, 68, 0.7);
-        }
-        
-        .reminder.status-overdue:hover {
-          background: rgba(239, 68, 68, 0.15);
-        }
-        
-        .reminder + .reminder {
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        
-        .reminder-left {
-          flex: 1;
-        }
-        
-        .reminder-name {
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--primary-text-color);
-          margin-bottom: 6px;
-        }
-        
-        .reminder.status-good .reminder-name {
-          color: rgba(16, 185, 129, 1);
-        }
-        
-        .reminder.status-warning .reminder-name {
-          color: rgba(245, 158, 11, 1);
-        }
-        
-        .reminder.status-overdue .reminder-name {
-          color: rgba(239, 68, 68, 1);
-        }
-        
-        .reminder-info {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          font-size: 12px;
-          color: var(--secondary-text-color);
-          opacity: 0.85;
-        }
-        
-        .info-row {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-        
-        .status-text {
-          font-weight: 500;
-        }
-        
-        .person-text {
-          font-style: italic;
-          opacity: 0.7;
-        }
-        
-        .datetime-text {
-          font-size: 11px;
-          opacity: 0.65;
-        }
-        
-        .reminder-right {
-          display: flex;
-          align-items: center;
-          margin-left: 12px;
-        }
-        
-        .progress-circle {
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          background: conic-gradient(
-            var(--progress-color) var(--progress-percent),
-            rgba(255, 255, 255, 0.12) var(--progress-percent)
-          );
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-        }
-        
-        .progress-circle::before {
-          content: '';
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: var(--card-background-color, rgba(0, 0, 0, 0.3));
-          position: absolute;
-        }
-        
-        .progress-text {
-          position: relative;
-          z-index: 1;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--primary-text-color);
-        }
-      </style>
-      
-      <div class="card">
-        <div class="reminders-list">
-          ${this._reminders.map(reminder => this._renderReminder(reminder)).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  _getColorClass(progress) {
-    if (progress < 50) return 'status-good';
-    if (progress < 80) return 'status-warning';
-    return 'status-overdue';
-  }
-
-  _getProgressColor(progress) {
-    if (progress < 50) return 'rgba(16, 185, 129, 0.9)';
-    if (progress < 80) return 'rgba(245, 158, 11, 0.9)';
-    return 'rgba(239, 68, 68, 1)';
-  }
-
-  _renderReminder(reminder) {
-    const scanData = this._getScanData(reminder.name);
-    const timeSince = this._getTimeSince(scanData.timestamp);
-    const formattedDateTime = this._formatDateTime(scanData.timestamp);
-    const progress = this._getProgressPercentage(reminder.name, reminder.interval, reminder.unit);
-    const colorClass = this._getColorClass(progress);
-    const progressColor = this._getProgressColor(progress);
-    const progressPercent = `${progress * 3.6}deg`;
-    
-    return `
-      <div class="reminder ${colorClass}" style="--progress-color: ${progressColor}; --progress-percent: ${progressPercent};">
-        <div class="reminder-left">
-          <div class="reminder-name">${reminder.name}</div>
-          <div class="reminder-info">
-            <div class="info-row">
-              <span class="status-text">${timeSince}</span>
-              ${scanData.person ? `<span class="person-text">• by ${scanData.person}</span>` : ''}
-            </div>
-            ${formattedDateTime ? `<div class="datetime-text">${formattedDateTime}</div>` : ''}
-          </div>
-        </div>
-        <div class="reminder-right">
-          <div class="progress-circle">
-            <span class="progress-text">${progress}%</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  getCardSize() {
-    return 2;
-  }
-
-  static getStubConfig() {
-    return {
-      reminders: [
-        {
-          name: "Example Reminder",
-          nfc_tag: "your_tag_id_here",
-          interval: 5,
-          unit: "days"
-        }
-      ]
-    };
-  }
-}
-
-customElements.define('nfc-reminder-card', NFCReminderCard);
-
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'nfc-reminder-card',
-  name: 'NFC Reminder Card',
-  description: 'Track reminders with NFC tags'
-});
+    for entity_entry in entries:
+        entity_reg.async_remove(entity_entry.entity_id)

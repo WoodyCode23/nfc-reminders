@@ -70,20 +70,9 @@ class NFCRemindersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _create_helper_entities(self, config):
         """Create the input_datetime and input_text helper entities."""
-        reminder_name = config[CONF_REMINDER_NAME]
-        safe_name = reminder_name.lower().replace(" ", "_")
-        
-        # Create input_datetime for last scan time
-        datetime_entity_id = f"input_datetime.{safe_name}_last_scan"
-        await self.hass.services.async_call(
-            "input_datetime",
-            "reload",
-            {},
-            blocking=True,
-        )
-        
-        # Note: We'll need to add these to the input_datetime configuration
-        # This will be handled by creating a storage-based helper
+        # Helper creation is now handled in __init__.py
+        # This method is kept for backwards compatibility
+        pass
         
     @staticmethod
     @callback
