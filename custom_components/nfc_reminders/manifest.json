@@ -1,12 +1,21 @@
 {
   "domain": "nfc_reminders",
   "name": "NFC Reminders",
-  "codeowners": [],
+  "after_dependencies": [
+    "tag",
+    "mobile_app",
+    "input_datetime",
+    "input_text",
+    "person",
+    "notify"
+  ],
+  "codeowners": ["@WoodyCode23"],
   "config_flow": true,
-  "dependencies": [],
-  "documentation": "https://github.com/WoodyCode23/nfc_reminders",
-  "integration_type": "device",
-  "iot_class": "local_polling",
-  "requirements": [],
-  "version": "1.0.0"
+  "dependencies": ["http", "persistent_notification"],
+  "documentation": "https://github.com/WoodyCode23/nfc-reminders",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/WoodyCode23/nfc-reminders/issues",
+  "requirements": ["segno==1.6.6"],
+  "version": "2.0.0"
 }

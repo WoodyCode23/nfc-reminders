@@ -41,4 +41,6 @@ htmlcov/
 # Environment
 .env
 venv/
+.venv/
 ENV/
+.claude/
