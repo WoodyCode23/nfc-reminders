@@ -26,6 +26,7 @@ async def test_never_done_states(hass, freezer):
     assert state(hass, "sensor.litter_box_1_days_since_scan") == "unknown"
     assert state(hass, "sensor.litter_box_1_progress") == "0"
     assert state(hass, "sensor.litter_box_1_next_due") == "unknown"
+    assert state(hass, "sensor.litter_box_1_status") == "good"
     assert state(hass, "sensor.litter_box_1_last_done_by") == "Unknown"
     assert state(hass, "binary_sensor.litter_box_1_overdue") == "off"
     attrs = hass.states.get("sensor.litter_box_1_progress").attributes
@@ -49,6 +50,7 @@ async def test_states_72_days_after(hass, freezer):
     assert state(hass, "sensor.litter_box_1_next_due") == "2026-09-09T20:40:41+00:00"
     assert state(hass, "sensor.litter_box_1_last_done_by") == "Ryan"
     assert state(hass, "binary_sensor.litter_box_1_overdue") == "on"
+    assert state(hass, "sensor.litter_box_1_status") == "overdue"
 
 
 async def test_status_is_warning_at_85_percent(hass, freezer):
@@ -61,6 +63,7 @@ async def test_status_is_warning_at_85_percent(hass, freezer):
     await hass.async_block_till_done()
     progress = hass.states.get("sensor.litter_box_1_progress")
     assert progress.state == "85" and progress.attributes["status"] == "warning"
+    assert state(hass, "sensor.litter_box_1_status") == "warning"
     assert state(hass, "binary_sensor.litter_box_1_overdue") == "off"
 
 
@@ -118,6 +121,7 @@ async def test_unique_ids_and_one_device_per_reminder(hass):
         "sensor.litter_box_1_last_scan": "litter_box_1_last_scan_display",
         "sensor.litter_box_1_days_since_scan": "litter_box_1_days_since_scan",
         "sensor.litter_box_1_progress": "litter_box_1_progress",
+        "sensor.litter_box_1_status": f"{e.entry_id}_status",
         "sensor.litter_box_1_next_due": f"{e.entry_id}_next_due",
         "sensor.litter_box_1_last_done_by": f"{e.entry_id}_last_done_by",
         "binary_sensor.litter_box_1_overdue": f"{e.entry_id}_overdue",
@@ -126,3 +130,33 @@ async def test_unique_ids_and_one_device_per_reminder(hass):
     }
     device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, e.entry_id)})
     assert device is not None and device.name == "Litter Box 1"
+
+
+async def test_status_is_a_state_automations_can_trigger_on(hass, freezer):
+    """good, warning, overdue as the clock moves, then back to good on a scan."""
+    from homeassistant.core import callback
+    from homeassistant.helpers.event import async_track_state_change_event
+
+    freezer.move_to(NOW)
+    e = v2_entry("Furnace Check", ["tag-1"], interval=10, unit="minutes")
+    await setup_entries(hass, e)
+    await get_manager(hass).async_mark_done([e.entry_id], by=None)
+    await hass.async_block_till_done()
+    status = hass.states.get("sensor.furnace_check_status")
+    assert status.state == "good"
+    assert status.attributes["options"] == ["good", "warning", "overdue"]
+
+    seen = []
+
+    @callback
+    def changed(event):
+        seen.append(event.data["new_state"].state)
+
+    async_track_state_change_event(hass, ["sensor.furnace_check_status"], changed)
+    for minutes in (4, 5, 9, 10, 11):
+        freezer.move_to(NOW + timedelta(minutes=minutes))
+        async_fire_time_changed(hass, dt_util.utcnow())
+        await hass.async_block_till_done()
+    hass.bus.async_fire("tag_scanned", {"tag_id": "tag-1"})
+    await hass.async_block_till_done()
+    assert seen == ["warning", "overdue", "good"]

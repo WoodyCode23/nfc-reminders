@@ -87,6 +87,7 @@ Each reminder is a device with these entities:
 | `sensor.<name>_last_scan` | When it was last done, as text |
 | `sensor.<name>_days_since_scan` | Days since it was last done |
 | `sensor.<name>_progress` | How far through the interval it is, 0 to 100 percent |
+| `sensor.<name>_status` | `good`, `warning` or `overdue`, as a state to trigger automations on |
 | `sensor.<name>_next_due` | When it is next due |
 | `sensor.<name>_last_done_by` | Who did it last |
 | `binary_sensor.<name>_overdue` | On when it is overdue |
@@ -94,6 +95,25 @@ Each reminder is a device with these entities:
 | `image.<name>_qr_code` | Its QR code |
 
 The progress sensor has these attributes: `status` (`good` below 50 percent, `warning` from 50 percent, `overdue` once it is due), `interval`, `interval_unit`, `nfc_tag_id` (the first tag) and `tag_ids` (all tags).
+
+## Use it in your own automations
+
+The status is a real state, so anything in Home Assistant can react to it. For example, turn a light red when a litter box becomes overdue:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: sensor.litter_box_1_status
+    to: overdue
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: light.hallway
+    data:
+      color_name: red
+```
+
+The status is `good` below 50 percent of the interval, `warning` from 50 percent, and `overdue` once it is due. It goes back to `good` when the tag is scanned. `binary_sensor.<name>_overdue` gives the same thing as a plain on or off.
 
 ## Actions
 

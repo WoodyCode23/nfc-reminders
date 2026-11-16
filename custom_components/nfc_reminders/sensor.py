@@ -28,6 +28,7 @@ async def async_setup_entry(
             LastScanSensor(manager, entry),
             DaysSinceSensor(manager, entry),
             ProgressSensor(manager, entry),
+            StatusSensor(manager, entry),
             NextDueSensor(manager, entry),
             LastDoneBySensor(manager, entry),
         ]
@@ -103,6 +104,31 @@ class ProgressSensor(ReminderEntity, SensorEntity):
             "nfc_tag_id": reminder.tag_ids[0] if reminder.tag_ids else None,
             "tag_ids": list(reminder.tag_ids),
         }
+
+
+class StatusSensor(ReminderEntity, SensorEntity):
+    """good, warning or overdue, as a state that automations can trigger on."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["good", "warning", "overdue"]
+    _attr_translation_key = "status"
+
+    def __init__(self, manager, entry) -> None:
+        super().__init__(manager, entry)
+        self._attr_name = f"{self.reminder.name} Status"
+        self._attr_unique_id = f"{entry.entry_id}_status"
+
+    @property
+    def native_value(self) -> str:
+        return self.reminder.status(dt_util.utcnow())
+
+    @property
+    def icon(self) -> str:
+        return {
+            "good": "mdi:check-circle",
+            "warning": "mdi:alert-circle",
+            "overdue": "mdi:alert-circle-outline",
+        }[self.native_value]
 
 
 class NextDueSensor(ReminderEntity, SensorEntity):

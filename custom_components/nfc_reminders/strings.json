@@ -74,6 +74,17 @@
       }
     }
   },
+  "entity": {
+    "sensor": {
+      "status": {
+        "state": {
+          "good": "Good",
+          "warning": "Due soon",
+          "overdue": "Overdue"
+        }
+      }
+    }
+  },
   "issues": {
     "no_notify_targets": {
       "title": "NFC Reminders has nobody to notify",
