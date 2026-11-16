@@ -75,7 +75,8 @@ class GroupEntity(_UpdatingEntity):
         super().__init__(manager, entry, manager.groups[entry.entry_id].name, "Group")
 
     @property
-    def group(self) -> Group:
+    def reminder_group(self) -> Group:
+        # Not "group": Home Assistant reserves Entity.group for its own entity groups.
         return self._manager.groups[self._entry.entry_id]
 
     @property

@@ -48,7 +48,7 @@ class GroupOverdueSensor(GroupEntity, BinarySensorEntity):
 
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
-        self._attr_name = f"{self.group.name} Overdue"
+        self._attr_name = f"{self.reminder_group.name} Overdue"
         self._attr_unique_id = f"{entry.entry_id}_overdue"
 
     @property

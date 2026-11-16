@@ -21,7 +21,18 @@ Everything is set up from the Home Assistant screens. There are no helpers to cr
 
 ## Install
 
-### HACS
+### Marketplace (Home Assistant 2026.11 and newer)
+
+Home Assistant's built-in Marketplace replaced HACS. The first time you open it, read and accept its warning.
+
+1. Go to **Settings**, **Marketplace**, and choose **Add from link** in the top right.
+2. Enter `https://github.com/WoodyCode23/nfc-reminders` and choose **Add**. If it asks for the type, pick **Integration**.
+3. Install **NFC Reminders**.
+4. Restart Home Assistant.
+
+To try a beta, open **Settings**, **Devices and services**, **Marketplace**, open the NFC Reminders device, enable its **Pre-release** entity, and switch it on.
+
+### HACS (older Home Assistant)
 
 1. Open HACS.
 2. Open the menu in the top right and choose **Custom repositories**.

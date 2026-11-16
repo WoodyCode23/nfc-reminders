@@ -369,6 +369,19 @@ async def test_group_entities_and_qr(hass, hass_client):
     assert response.status == 200 and await response.read() == qr_svg("g-tag")
 
 
+def test_entities_do_not_override_home_assistants_group_attribute():
+    """Home Assistant 2026.11 reserves Entity.group and warns when a class replaces it."""
+    from custom_components.nfc_reminders import binary_sensor, button, entity, image, sensor
+
+    classes = [
+        c
+        for module in (entity, sensor, binary_sensor, button, image)
+        for c in vars(module).values()
+        if isinstance(c, type) and c.__module__ == module.__name__
+    ]
+    assert classes and not [c.__name__ for c in classes if "group" in vars(c)]
+
+
 async def test_qr_sheet_lists_groups_first_and_labels_them(hass, hass_client_no_auth):
     two = boxes(2)
     await setup_entries(hass, *two, group_entry("Zebra Group", two, ["g"]))

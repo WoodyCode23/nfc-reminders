@@ -145,7 +145,7 @@ class GroupStatusSensor(GroupEntity, SensorEntity):
 
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
-        self._attr_name = f"{self.group.name} Status"
+        self._attr_name = f"{self.reminder_group.name} Status"
         self._attr_unique_id = f"{entry.entry_id}_status"
 
     @property
@@ -162,7 +162,7 @@ class GroupStatusSensor(GroupEntity, SensorEntity):
         return {
             "members": [r.name for r in self.members],
             "overdue": [r.name for r in self.members if r.is_overdue(now)],
-            "tag_ids": list(self.group.tag_ids),
+            "tag_ids": list(self.reminder_group.tag_ids),
         }
 
 

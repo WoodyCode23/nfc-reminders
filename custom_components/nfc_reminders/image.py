@@ -77,7 +77,7 @@ class GroupQrImage(GroupEntity, _QrImageMixin):
     def __init__(self, hass: HomeAssistant, manager, entry) -> None:
         ImageEntity.__init__(self, hass)
         GroupEntity.__init__(self, manager, entry)
-        self._start_image(self.group.name, f"{entry.entry_id}_qr")
+        self._start_image(self.reminder_group.name, f"{entry.entry_id}_qr")
 
     def _tags(self) -> list[str]:
-        return self.group.tag_ids
+        return self.reminder_group.tag_ids

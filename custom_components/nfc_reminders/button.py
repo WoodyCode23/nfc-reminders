@@ -55,7 +55,7 @@ class GroupMarkDoneButton(GroupEntity, ButtonEntity):
 
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
-        self._attr_name = f"{self.group.name} Mark Done"
+        self._attr_name = f"{self.reminder_group.name} Mark Done"
         self._attr_unique_id = f"{entry.entry_id}_mark_done"
 
     async def async_press(self) -> None:
