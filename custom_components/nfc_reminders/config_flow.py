@@ -22,6 +22,7 @@ from .const import (
     CONF_INTERVAL_UNIT,
     CONF_MEMBERS,
     CONF_NOTIFY_ON_SCAN,
+    CONF_REMIND_AFTER,
     CONF_REMINDER_NAME,
     CONF_TAG_IDS,
     CONF_TARGETS,
@@ -178,14 +179,18 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             name = user_input[CONF_REMINDER_NAME].strip()
+            remind_after = user_input.get(CONF_REMIND_AFTER)
             if error := self._name_error(name):
                 errors["base"] = error
+            elif remind_after and remind_after >= user_input[CONF_INTERVAL]:
+                errors[CONF_REMIND_AFTER] = "remind_after_too_late"
             else:
                 self._data = {
                     CONF_ENTRY_TYPE: ENTRY_TYPE_REMINDER,
                     CONF_REMINDER_NAME: name,
                     CONF_INTERVAL: user_input[CONF_INTERVAL],
                     CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
+                    CONF_REMIND_AFTER: remind_after or None,
                 }
                 return await self.async_step_tag()
 
@@ -198,6 +203,7 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_INTERVAL_UNIT, default=DEFAULT_INTERVAL_UNIT
                     ): _UNIT_SELECTOR,
+                    vol.Optional(CONF_REMIND_AFTER): _INTERVAL,
                 }
             ),
             errors=errors,
@@ -352,8 +358,12 @@ class ReminderOptionsFlow(OptionsFlow):
                 tag_id = str(tag_id).strip()
                 if tag_id and tag_id not in tags:
                     tags.append(tag_id)
+            # Left empty means no heads-up: the key is simply missing.
+            remind_after = user_input.get(CONF_REMIND_AFTER) or None
             if not tags:
                 errors["base"] = "tag_required"
+            elif remind_after and remind_after >= user_input[CONF_INTERVAL]:
+                errors[CONF_REMIND_AFTER] = "remind_after_too_late"
             else:
                 self.hass.config_entries.async_update_entry(
                     entry,
@@ -361,6 +371,7 @@ class ReminderOptionsFlow(OptionsFlow):
                         **entry.data,
                         CONF_INTERVAL: user_input[CONF_INTERVAL],
                         CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
+                        CONF_REMIND_AFTER: remind_after,
                         CONF_TAG_IDS: tags,
                     },
                 )
@@ -380,6 +391,10 @@ class ReminderOptionsFlow(OptionsFlow):
                             CONF_INTERVAL_UNIT, DEFAULT_INTERVAL_UNIT
                         ),
                     ): _UNIT_SELECTOR,
+                    vol.Optional(
+                        CONF_REMIND_AFTER,
+                        description={"suggested_value": entry.data.get(CONF_REMIND_AFTER)},
+                    ): _INTERVAL,
                     vol.Required(CONF_TAG_IDS, default=current_tags): _tag_selector(
                         self.hass, multiple=True, extra=current_tags
                     ),

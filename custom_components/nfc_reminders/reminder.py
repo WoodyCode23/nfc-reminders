@@ -56,10 +56,29 @@ class Reminder:
     unit: str = "days"
     last_done: datetime | None = None  # timezone-aware UTC
     last_done_by: str | None = None
+    remind_after: int | None = None  # same unit as interval; heads-up before it is due
 
     @property
     def period(self) -> timedelta:
         return interval_to_timedelta(self.interval, self.unit)
+
+    @property
+    def remind_at(self) -> datetime | None:
+        """When the heads-up starts. None without a last done time or a remind_after."""
+        if self.last_done is None or not self.remind_after:
+            return None
+        return self.last_done + interval_to_timedelta(self.remind_after, self.unit)
+
+    def is_due_soon(self, now: datetime) -> bool:
+        """Past the heads-up point but not yet overdue."""
+        remind_at = self.remind_at
+        return remind_at is not None and now >= remind_at and not self.is_overdue(now)
+
+    def due_soon_line(self, now: datetime) -> str:
+        """One heads-up line: "Litter Box 1: due in 2 days"."""
+        left = (self.next_due or now) - now
+        whole = math.ceil(max(left.total_seconds(), 0) / _UNIT_SECONDS[self.unit])
+        return f"{self.name}: due in {_count(max(whole, 1), self.unit)}"
 
     @property
     def next_due(self) -> datetime | None:
@@ -94,8 +113,11 @@ class Reminder:
         return round(elapsed.total_seconds() / 86400, 1)
 
     def status(self, now: datetime) -> str:
+        """overdue at the interval; warning from remind_after, or from halfway without one."""
         if self.is_overdue(now):
             return "overdue"
+        if self.remind_after:
+            return "warning" if self.is_due_soon(now) else "good"
         if self.ratio(now) >= 0.5:
             return "warning"
         return "good"

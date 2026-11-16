@@ -7,6 +7,7 @@ CONF_NFC_TAG_ID = "nfc_tag_id"  # version 1 entries only; version 2 uses CONF_TA
 CONF_TAG_IDS = "tag_ids"
 CONF_INTERVAL = "interval"
 CONF_INTERVAL_UNIT = "interval_unit"
+CONF_REMIND_AFTER = "remind_after"
 
 CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_REMINDER = "reminder"

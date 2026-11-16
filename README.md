@@ -9,7 +9,8 @@ Everything is set up from the Home Assistant screens. There are no helpers to cr
 - **Scan to mark done.** Scan the tag (or its QR code) with the Home Assistant app and the reminder resets.
 - **Or just tap.** Every reminder and group has a Mark done button for your dashboards. No tag needed.
 - **QR codes.** Every reminder has a QR code you can print. A sticker works as well as an NFC tag.
-- **Overdue overview.** At the times you choose (09:00 and 14:00 by default) you get one notification listing what is overdue. Nothing overdue means no notification.
+- **Overdue overview.** At the times you choose (09:00 and 14:00 by default) you get one notification listing what is overdue, and what is due soon. Nothing due means no notification.
+- **Heads-up before it is due.** "Every 5 days, remind after 3": from day 3 it shows as due soon and is in the overview; from day 5 it is overdue.
 - **Groups.** Put several reminders in a group, for example "All Litter Boxes". The group's own tag, QR code or button marks all of them done at once.
 - **Who did it.** The reminder records who scanned, taken from the phone that scanned.
 - **Entities for your own dashboards and automations.** Progress, next due, overdue and more.
@@ -97,7 +98,7 @@ Deleting a group never deletes its reminders or their dates. Deleting a reminder
 
 Open the **Notifications** entry and choose **Configure**:
 
-- **Send the overdue overview at:** 24-hour times separated by commas, for example `09:00, 14:00`.
+- **Send the overview at:** 24-hour times separated by commas, for example `09:00, 14:00`.
 - **Send it to:** one or more of your notify services or notify entities (phones, groups).
 - **Also send a message when something is marked done:** off by default.
 
@@ -106,13 +107,23 @@ Nothing is sent until you choose at least one place to send it. Home Assistant s
 The overview looks like this:
 
 ```
-3 things overdue
-Litter Box 1: 12 days (every 5 days)
+2 overdue, 1 due soon
 Furnace Filter: 95 days (every 90 days)
 Master Bathroom: 21 days (every 20 days)
+Litter Box 1: due in 2 days
 ```
 
-A reminder that has never been marked done is not counted as overdue.
+Overdue chores come first, most overdue at the top. Chores past their **Remind after** point come next, soonest first. A reminder that has never been marked done is never counted.
+
+### Remind after
+
+Each reminder has an optional **Remind after**, in the same unit as its interval. Set it when you add the reminder, or later under the reminder's **Configure**. With "every 5 days, remind after 3":
+
+- days 0 to 3: `good`
+- day 3 to 5: `warning` (shown as Due soon) and listed in the overview as due soon
+- day 5 on: `overdue`
+
+Without it, the status turns to `warning` at the halfway point and the reminder only appears in the overview once it is overdue.
 
 ## Entities
 
@@ -130,7 +141,7 @@ Each reminder is a device with these entities:
 | `button.<name>_mark_done` | Marks it done without a scan |
 | `image.<name>_qr_code` | Its QR code |
 
-The progress sensor has these attributes: `status` (`good` below 50 percent, `warning` from 50 percent, `overdue` once it is due), `interval`, `interval_unit`, `nfc_tag_id` (the first tag) and `tag_ids` (all tags).
+The progress sensor has these attributes: `status` (the same value as the status sensor), `interval`, `interval_unit`, `remind_after`, `nfc_tag_id` (the first tag) and `tag_ids` (all tags).
 
 ## Use it in your own automations
 
@@ -149,7 +160,7 @@ actions:
       color_name: red
 ```
 
-The status is `good` below 50 percent of the interval, `warning` from 50 percent, and `overdue` once it is due. It goes back to `good` when the tag is scanned. `binary_sensor.<name>_overdue` gives the same thing as a plain on or off.
+The status is `good` at first, `warning` from the **Remind after** point (or from halfway when there is none), and `overdue` once it is due. It goes back to `good` when the tag is scanned. `binary_sensor.<name>_overdue` gives the same thing as a plain on or off.
 
 ## Actions
 

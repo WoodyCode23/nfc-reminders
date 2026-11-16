@@ -17,6 +17,7 @@ from .const import (
     CONF_INTERVAL,
     CONF_INTERVAL_UNIT,
     CONF_MEMBERS,
+    CONF_REMIND_AFTER,
     CONF_REMINDER_NAME,
     CONF_TAG_IDS,
     DEFAULT_INTERVAL,
@@ -82,6 +83,7 @@ class Manager:
             tag_ids=list(data.get(CONF_TAG_IDS, [])),
             interval=int(data.get(CONF_INTERVAL, DEFAULT_INTERVAL)),
             unit=data.get(CONF_INTERVAL_UNIT, DEFAULT_INTERVAL_UNIT),
+            remind_after=data.get(CONF_REMIND_AFTER) or None,
         )
         record = self._store.get(entry.entry_id)
         if record is not None:

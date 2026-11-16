@@ -110,6 +110,7 @@ class ProgressSensor(ReminderEntity, SensorEntity):
             "status": reminder.status(dt_util.utcnow()),
             "interval": reminder.interval,
             "interval_unit": reminder.unit,
+            "remind_after": reminder.remind_after,
             "nfc_tag_id": reminder.tag_ids[0] if reminder.tag_ids else None,
             "tag_ids": list(reminder.tag_ids),
         }

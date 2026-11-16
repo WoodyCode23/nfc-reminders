@@ -28,17 +28,33 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_TITLE = "NFC Reminders"
 
 
+def _things(count: int, what: str) -> str:
+    return f"1 thing {what}" if count == 1 else f"{count} things {what}"
+
+
 def build_overview(
     reminders: Iterable[Reminder], now: datetime
 ) -> tuple[str, str] | None:
-    """Title and body of the overview, most overdue first. None when nothing is overdue."""
-    overdue = [r for r in reminders if r.is_overdue(now)]
-    if not overdue:
+    """Overdue chores (most overdue first), then due-soon ones (soonest first).
+
+    A chore is due soon only when it has a remind_after and is past it. None when there is nothing.
+    """
+    reminders = list(reminders)
+    overdue = sorted(
+        (r for r in reminders if r.is_overdue(now)), key=lambda r: r.ratio(now), reverse=True
+    )
+    soon = sorted((r for r in reminders if r.is_due_soon(now)), key=lambda r: r.next_due)
+    if not overdue and not soon:
         return None
-    overdue.sort(key=lambda r: r.ratio(now), reverse=True)
-    count = len(overdue)
-    title = "1 thing overdue" if count == 1 else f"{count} things overdue"
-    return title, "\n".join(r.overview_line(now) for r in overdue)
+    if overdue and soon:
+        title = f"{len(overdue)} overdue, {len(soon)} due soon"
+    elif overdue:
+        title = _things(len(overdue), "overdue")
+    else:
+        title = _things(len(soon), "due soon")
+    lines = [r.overview_line(now) for r in overdue]
+    lines += [r.due_soon_line(now) for r in soon]
+    return title, "\n".join(lines)
 
 
 def build_scan_message(names: list[str], by: str | None) -> tuple[str, str]:

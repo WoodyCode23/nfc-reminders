@@ -15,7 +15,11 @@
         "data": {
           "reminder_name": "Name",
           "interval": "Every",
-          "interval_unit": "Unit"
+          "interval_unit": "Unit",
+          "remind_after": "Remind after (optional)"
+        },
+        "data_description": {
+          "remind_after": "In the same unit. For example every 5 days, remind after 3: it shows as due soon and is in the overview from day 3, and is overdue from day 5."
         }
       },
       "group": {
@@ -52,7 +56,8 @@
       "name_required": "Give it a name.",
       "members_required": "Choose at least one reminder.",
       "no_scan": "No scan seen yet. Scan the tag with the Home Assistant app, then press Submit again.",
-      "tag_required": "Choose or type a tag."
+      "tag_required": "Choose or type a tag.",
+      "remind_after_too_late": "The reminder must come before it is due. Use a number smaller than Every."
     },
     "abort": {
       "already_configured": "Already set up.",
@@ -66,13 +71,15 @@
         "data": {
           "interval": "Every",
           "interval_unit": "Unit",
+          "remind_after": "Remind after (optional)",
           "tag_ids": "Tags that mark this done",
           "members": "Reminders in this group",
-          "times": "Send the overdue overview at",
+          "times": "Send the overview at",
           "targets": "Send it to",
           "notify_on_scan": "Also send a message when something is marked done"
         },
         "data_description": {
+          "remind_after": "In the same unit. From this point it shows as due soon and is in the overview. Leave empty for no heads-up.",
           "tag_ids": "You can pick a known tag or type a tag id. To mark several reminders with one tag, make a group instead.",
           "times": "24-hour times separated by commas, for example 09:00, 14:00.",
           "targets": "Nothing is sent until at least one is chosen."
@@ -82,7 +89,8 @@
     "error": {
       "invalid_time": "Use 24-hour times separated by commas, for example 09:00, 14:00.",
       "tag_required": "It needs at least one tag.",
-      "members_required": "A group needs at least one reminder."
+      "members_required": "A group needs at least one reminder.",
+      "remind_after_too_late": "The reminder must come before it is due. Use a number smaller than Every."
     }
   },
   "selector": {
