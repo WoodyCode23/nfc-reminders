@@ -1,0 +1,103 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a reminder",
+        "description": "Name the chore and say how often it should be done.",
+        "data": {
+          "reminder_name": "Name",
+          "interval": "Every",
+          "interval_unit": "Unit"
+        }
+      },
+      "tag": {
+        "title": "Choose its tag",
+        "description": "Scanning this tag (or its QR code) marks the reminder done.",
+        "menu_options": {
+          "scan": "Scan an NFC tag now",
+          "existing": "Pick a tag Home Assistant already knows",
+          "new_qr": "Make a new QR code (no NFC tag needed)"
+        }
+      },
+      "scan": {
+        "title": "Scan the tag",
+        "description": "Scan the tag now with the Home Assistant app, then press Submit."
+      },
+      "existing": {
+        "title": "Pick a tag",
+        "description": "Choose a tag from the list, or type a tag id.",
+        "data": {
+          "tag_id": "Tag"
+        }
+      }
+    },
+    "error": {
+      "name_exists": "A reminder with this name already exists.",
+      "name_required": "Give the reminder a name.",
+      "no_scan": "No scan seen yet. Scan the tag with the Home Assistant app, then press Submit again.",
+      "tag_required": "Choose or type a tag."
+    },
+    "abort": {
+      "already_configured": "Already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "data": {
+          "interval": "Every",
+          "interval_unit": "Unit",
+          "tag_ids": "Tags that mark this done",
+          "times": "Send the overdue overview at",
+          "targets": "Send it to",
+          "notify_on_scan": "Also send a message when something is marked done"
+        },
+        "data_description": {
+          "tag_ids": "Add the same tag to several reminders to make it a master tag. You can type a tag id.",
+          "times": "24-hour times separated by commas, for example 09:00, 14:00.",
+          "targets": "Nothing is sent until at least one is chosen."
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Use 24-hour times separated by commas, for example 09:00, 14:00.",
+      "tag_required": "A reminder needs at least one tag."
+    }
+  },
+  "selector": {
+    "interval_unit": {
+      "options": {
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days"
+      }
+    }
+  },
+  "issues": {
+    "no_notify_targets": {
+      "title": "NFC Reminders has nobody to notify",
+      "description": "Overdue reminders are not being sent. Choose who gets them under Settings, Devices and services, NFC Reminders, Notifications, Configure."
+    }
+  },
+  "services": {
+    "mark_done": {
+      "name": "Mark done",
+      "description": "Marks one or more reminders done, the same as scanning their tag.",
+      "fields": {
+        "entity_id": {
+          "name": "Reminder",
+          "description": "Any entity of the reminder, for example its progress sensor."
+        },
+        "when": {
+          "name": "When",
+          "description": "When it was done. Leave empty for now."
+        }
+      }
+    },
+    "create_qr_sheet": {
+      "name": "Create printable QR sheet",
+      "description": "Creates a link, valid for one hour, to a printable page with the QR code of every reminder."
+    }
+  }
+}

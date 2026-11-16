@@ -1,0 +1,14 @@
+mark_done:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          integration: nfc_reminders
+          multiple: true
+    when:
+      required: false
+      selector:
+        datetime:
+
+create_qr_sheet:
