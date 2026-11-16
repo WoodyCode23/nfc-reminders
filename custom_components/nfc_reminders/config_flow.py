@@ -24,6 +24,7 @@ from .const import (
     CONF_NOTIFY_ON_SCAN,
     CONF_REMIND_AFTER,
     CONF_REMINDER_NAME,
+    CONF_SLUG,
     CONF_TAG_IDS,
     CONF_TARGETS,
     CONF_TIMES,
@@ -92,14 +93,27 @@ def _entry_name(entry: ConfigEntry) -> str:
 
 
 def _name_taken(entries: list[ConfigEntry], name: str, *, skip: str | None = None) -> bool:
-    """Reminders and groups share entity ids built from the name, so names must differ."""
+    """Reminders and groups share entity ids built from the name, so names must differ.
+
+    A renamed reminder still owns the unique ids of its original name (its slug), so a new
+    reminder may not take that name either.
+    """
     slug = safe_name(name)
     return any(
-        safe_name(_entry_name(entry)) == slug
+        slug in (safe_name(_entry_name(entry)), entry.data.get(CONF_SLUG))
         for entry in entries
         if entry.entry_id != skip
         and entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_NOTIFICATIONS
     )
+
+
+def _rename_error(hass: HomeAssistant, entry: ConfigEntry, name: str) -> str | None:
+    """Error key for a new name in settings, or None when it is fine (or unchanged)."""
+    if not name:
+        return "name_required"
+    if _name_taken(hass.config_entries.async_entries(DOMAIN), name, skip=entry.entry_id):
+        return "name_exists"
+    return None
 
 
 def _reminder_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
@@ -191,6 +205,7 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_INTERVAL: user_input[CONF_INTERVAL],
                     CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
                     CONF_REMIND_AFTER: remind_after or None,
+                    CONF_SLUG: safe_name(name),
                 }
                 return await self.async_step_tag()
 
@@ -360,15 +375,23 @@ class ReminderOptionsFlow(OptionsFlow):
                     tags.append(tag_id)
             # Left empty means no heads-up: the key is simply missing.
             remind_after = user_input.get(CONF_REMIND_AFTER) or None
-            if not tags:
+            name = str(user_input.get(CONF_REMINDER_NAME, "")).strip()
+            if name_error := _rename_error(self.hass, entry, name):
+                errors[CONF_REMINDER_NAME] = name_error
+            elif not tags:
                 errors["base"] = "tag_required"
             elif remind_after and remind_after >= user_input[CONF_INTERVAL]:
                 errors[CONF_REMIND_AFTER] = "remind_after_too_late"
             else:
                 self.hass.config_entries.async_update_entry(
                     entry,
+                    title=name,
                     data={
                         **entry.data,
+                        # Fix the slug before the first rename (entries from before slugs existed).
+                        CONF_SLUG: entry.data.get(CONF_SLUG)
+                        or safe_name(entry.data[CONF_REMINDER_NAME]),
+                        CONF_REMINDER_NAME: name,
                         CONF_INTERVAL: user_input[CONF_INTERVAL],
                         CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
                         CONF_REMIND_AFTER: remind_after,
@@ -381,6 +404,9 @@ class ReminderOptionsFlow(OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(
+                        CONF_REMINDER_NAME, default=entry.data[CONF_REMINDER_NAME]
+                    ): str,
                     vol.Required(
                         CONF_INTERVAL,
                         default=entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL),
@@ -423,13 +449,23 @@ class GroupOptionsFlow(OptionsFlow):
         if user_input is not None:
             members = _clean_members(user_input.get(CONF_MEMBERS, []), options)
             tags = _clean_tags(user_input.get(CONF_TAG_IDS, []))
-            if not members:
+            name = str(user_input.get(CONF_GROUP_NAME, "")).strip()
+            if name_error := _rename_error(self.hass, entry, name):
+                errors[CONF_GROUP_NAME] = name_error
+            elif not members:
                 errors["base"] = "members_required"
             elif not tags:
                 errors["base"] = "tag_required"
             else:
                 self.hass.config_entries.async_update_entry(
-                    entry, data={**entry.data, CONF_MEMBERS: members, CONF_TAG_IDS: tags}
+                    entry,
+                    title=name,
+                    data={
+                        **entry.data,
+                        CONF_GROUP_NAME: name,
+                        CONF_MEMBERS: members,
+                        CONF_TAG_IDS: tags,
+                    },
                 )
                 return self.async_create_entry(data={})
 
@@ -437,6 +473,7 @@ class GroupOptionsFlow(OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(CONF_GROUP_NAME, default=entry.data[CONF_GROUP_NAME]): str,
                     vol.Required(CONF_MEMBERS, default=current_members): _members_selector(
                         options
                     ),

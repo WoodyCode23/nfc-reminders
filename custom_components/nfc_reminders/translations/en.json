@@ -69,6 +69,8 @@
       "init": {
         "title": "Settings",
         "data": {
+          "reminder_name": "Name",
+          "group_name": "Name",
           "interval": "Every",
           "interval_unit": "Unit",
           "remind_after": "Remind after (optional)",
@@ -79,6 +81,7 @@
           "notify_on_scan": "Also send a message when something is marked done"
         },
         "data_description": {
+          "reminder_name": "Renaming keeps the entity ids and history.",
           "remind_after": "In the same unit. From this point it shows as due soon and is in the overview. Leave empty for no heads-up.",
           "tag_ids": "You can pick a known tag or type a tag id. To mark several reminders with one tag, make a group instead.",
           "times": "24-hour times separated by commas, for example 09:00, 14:00.",
@@ -88,6 +91,8 @@
     },
     "error": {
       "invalid_time": "Use 24-hour times separated by commas, for example 09:00, 14:00.",
+      "name_exists": "A reminder or group with this name already exists.",
+      "name_required": "Give it a name.",
       "tag_required": "It needs at least one tag.",
       "members_required": "A group needs at least one reminder.",
       "remind_after_too_late": "The reminder must come before it is due. Use a number smaller than Every."

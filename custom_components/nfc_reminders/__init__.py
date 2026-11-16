@@ -20,6 +20,8 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (
     CONF_ENTRY_TYPE,
     CONF_NFC_TAG_ID,
+    CONF_REMINDER_NAME,
+    CONF_SLUG,
     CONF_TAG_IDS,
     DOMAIN,
     ENTRY_TYPE_GROUP,
@@ -31,6 +33,7 @@ from .const import (
 from .manager import Manager, get_manager
 from .notifications import async_setup_notifications
 from .qr import QrSheetView, async_announce_sheet
+from .reminder import safe_name
 from .who import async_resolve_user
 
 _LOGGER = logging.getLogger(__name__)
@@ -114,6 +117,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         tag_id = data.pop(CONF_NFC_TAG_ID, None)
         data[CONF_TAG_IDS] = [tag_id] if tag_id else []
         data[CONF_ENTRY_TYPE] = ENTRY_TYPE_REMINDER
+        data[CONF_SLUG] = safe_name(data[CONF_REMINDER_NAME])
         # Version 1 saved interval edits into options but never read them; data wins.
         hass.config_entries.async_update_entry(entry, data=data, options={}, version=2)
         _LOGGER.info("Migrated reminder %s to version 2", entry.title)

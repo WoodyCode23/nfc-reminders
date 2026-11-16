@@ -67,6 +67,7 @@ async def test_scan_a_tag_now(hass):
         "interval": 5,
         "interval_unit": "days",
         "remind_after": None,
+        "slug": "litter_box_1",
         "tag_ids": ["scanned-tag"],
     }
     assert hass.states.get("sensor.litter_box_1_progress") is not None

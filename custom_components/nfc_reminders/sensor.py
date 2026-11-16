@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .entity import GroupEntity, ReminderEntity, is_group_entry, is_reminder_entry
 from .manager import get_manager
-from .reminder import safe_name, worst_status
+from .reminder import worst_status
 
 _STATUS_ICONS = {
     "good": "mdi:check-circle",
@@ -52,7 +52,7 @@ class LastScanSensor(ReminderEntity, SensorEntity):
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
         self._attr_name = f"{self.reminder.name} Last Scan"
-        self._attr_unique_id = f"{safe_name(self.reminder.name)}_last_scan_display"
+        self._attr_unique_id = f"{self.reminder.slug}_last_scan_display"
 
     @property
     def native_value(self) -> str:
@@ -73,7 +73,7 @@ class DaysSinceSensor(ReminderEntity, SensorEntity):
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
         self._attr_name = f"{self.reminder.name} Days Since Scan"
-        self._attr_unique_id = f"{safe_name(self.reminder.name)}_days_since_scan"
+        self._attr_unique_id = f"{self.reminder.slug}_days_since_scan"
 
     @property
     def native_value(self) -> float | None:
@@ -88,7 +88,7 @@ class ProgressSensor(ReminderEntity, SensorEntity):
     def __init__(self, manager, entry) -> None:
         super().__init__(manager, entry)
         self._attr_name = f"{self.reminder.name} Progress"
-        self._attr_unique_id = f"{safe_name(self.reminder.name)}_progress"
+        self._attr_unique_id = f"{self.reminder.slug}_progress"
 
     @property
     def native_value(self) -> int:

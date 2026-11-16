@@ -25,17 +25,20 @@ def tag_url(tag_id: str) -> str:
     return TAG_URL_PREFIX + tag_id
 
 
-def _svg(tag_id: str, *, xmldecl: bool) -> bytes:
+def _svg(tag_id: str, *, xmldecl: bool, scalable: bool = False) -> bytes:
+    """scalable: a viewBox instead of a fixed size, so CSS can resize it without cropping."""
     out = io.BytesIO()
     segno.make(tag_url(tag_id), error="m").save(
-        out, kind="svg", scale=8, border=2, xmldecl=xmldecl
+        out, kind="svg", scale=8, border=2, xmldecl=xmldecl, omitsize=scalable
     )
     return out.getvalue()
 
 
 def qr_svg(tag_id: str) -> bytes:
-    """A standalone SVG document."""
-    return _svg(tag_id, xmldecl=True)
+    """A standalone SVG document with a natural size and a viewBox, so cards can resize it."""
+    width, height = segno.make(tag_url(tag_id), error="m").symbol_size(scale=8, border=2)
+    svg = _svg(tag_id, xmldecl=True, scalable=True)
+    return svg.replace(b"<svg ", f'<svg width="{width}" height="{height}" '.encode(), 1)
 
 
 def sheet_html(reminders: list[Reminder], groups: list[Group] | None = None) -> str:
@@ -46,7 +49,7 @@ def sheet_html(reminders: list[Reminder], groups: list[Group] | None = None) -> 
     for item, is_group in items:
         if not item.tag_ids:
             continue
-        svg = _svg(item.tag_ids[0], xmldecl=False).decode("utf-8")
+        svg = _svg(item.tag_ids[0], xmldecl=False, scalable=True).decode("utf-8")
         note = '<div class="kind">Group</div>' if is_group else ""
         cards.append(
             f'<div class="card">{svg}<div class="name">{escape(item.name)}</div>{note}</div>'

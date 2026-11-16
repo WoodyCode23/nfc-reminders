@@ -19,6 +19,7 @@ from .const import (
     CONF_MEMBERS,
     CONF_REMIND_AFTER,
     CONF_REMINDER_NAME,
+    CONF_SLUG,
     CONF_TAG_IDS,
     DEFAULT_INTERVAL,
     DEFAULT_INTERVAL_UNIT,
@@ -26,7 +27,7 @@ from .const import (
     EVENT_TAG_SCANNED,
     SIGNAL_UPDATE,
 )
-from .reminder import Group, Reminder, safe_name
+from .reminder import Group, Reminder
 from .store import ReminderStore
 from .who import async_resolve_device
 
@@ -84,6 +85,7 @@ class Manager:
             interval=int(data.get(CONF_INTERVAL, DEFAULT_INTERVAL)),
             unit=data.get(CONF_INTERVAL_UNIT, DEFAULT_INTERVAL_UNIT),
             remind_after=data.get(CONF_REMIND_AFTER) or None,
+            slug=data.get(CONF_SLUG) or "",
         )
         record = self._store.get(entry.entry_id)
         if record is not None:
@@ -201,7 +203,7 @@ class Manager:
         self, reminder: Reminder, *, may_retry: bool = True
     ) -> None:
         """Carry over the version 1 helpers once. They are only read, never written."""
-        slug = safe_name(reminder.name)
+        slug = reminder.slug  # helpers were named after the original name
         date_state = self.hass.states.get(f"input_datetime.{slug}_last_scan")
 
         if (

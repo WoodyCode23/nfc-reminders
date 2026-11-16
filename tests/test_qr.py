@@ -1,4 +1,6 @@
 """QR codes and the printable sheet."""
+import re
+
 from homeassistant.util import dt as dt_util
 
 from custom_components.nfc_reminders.const import DOMAIN
@@ -16,6 +18,8 @@ def test_qr_svg_is_an_svg_document():
     svg = qr_svg("abc")
     assert isinstance(svg, bytes) and svg.startswith(b"<?xml") and b"<svg" in svg
     assert qr_svg("abc") == svg and qr_svg("abd") != svg
+    root = re.search(rb"<svg[^>]*>", svg).group(0)
+    assert b"viewBox" in root and b"width=" in root and b"height=" in root
 
 
 def test_sheet_lists_every_reminder_once_and_escapes_names():
@@ -30,6 +34,9 @@ def test_sheet_lists_every_reminder_once_and_escapes_names():
     assert "&lt;b&gt;Bold&lt;/b&gt; &amp; Co" in html and "<b>Bold" not in html
     assert html.count("<svg") == 2 and "No Tag" not in html
     assert "<?xml" not in html
+    # Each code scales by viewBox; a fixed width/height gets cropped when CSS resizes it.
+    for svg in re.findall(r"<svg[^>]*>", html):
+        assert "viewBox" in svg and "width=" not in svg and "height=" not in svg
 
 
 async def test_image_entity_serves_the_first_tags_qr(hass, hass_client):

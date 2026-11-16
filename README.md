@@ -62,6 +62,8 @@ The first time you add a reminder, an entry called **Notifications** appears nex
 
 Each reminder has a **QR Code** image entity. To print all of them at once, press the **Create printable QR sheet** button on the Notifications entry (or call the `nfc_reminders.create_qr_sheet` action). A notification appears in Home Assistant with a link to a printable page. The link works for one hour.
 
+![The printable QR sheet: one code per reminder and group, with its name underneath](docs/images/qr-sheet.png)
+
 To scan, point the phone's camera at the code and open the link it shows. The Home Assistant app must be installed on that phone. On an iPhone the app shows a notification that you tap to finish the scan.
 
 The QR code holds the same link Home Assistant writes to NFC tags, so a QR code and an NFC tag for the same reminder are interchangeable.
@@ -178,7 +180,7 @@ data:
 
 ## Change or delete a reminder
 
-Open the reminder under **Settings**, **Devices and services**, **NFC Reminders** and choose **Configure** to change how often it is due or which tags mark it done. Changes take effect straight away. Delete it from the same place.
+Open the reminder under **Settings**, **Devices and services**, **NFC Reminders** and choose **Configure** to rename it, change how often it is due, set **Remind after**, or change which tags mark it done. Changes take effect straight away. Renaming keeps its entity ids and history. Delete it from the same place.
 
 ## Upgrading from version 1
 
