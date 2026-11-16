@@ -21,7 +21,11 @@ EM_DASH = chr(0x2014)
 
 async def start(hass, name="Litter Box 1", interval=5, unit="days"):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert result["type"] is FlowResultType.FORM and result["step_id"] == "user"
+    assert result["type"] is FlowResultType.MENU and result["step_id"] == "user"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "reminder"}
+    )
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "reminder"
     return await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"reminder_name": name, "interval": interval, "interval_unit": unit},

@@ -14,7 +14,7 @@ from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN, QR_SHEET_URL, TAG_URL_PREFIX
-from .reminder import Reminder
+from .reminder import Group, Reminder
 
 SHEET_LINK_VALID = timedelta(hours=1)
 SHEET_NOTIFICATION_ID = "nfc_reminders_qr_sheet"
@@ -38,15 +38,18 @@ def qr_svg(tag_id: str) -> bytes:
     return _svg(tag_id, xmldecl=True)
 
 
-def sheet_html(reminders: list[Reminder]) -> str:
-    """One page with every reminder's QR code and its name underneath."""
+def sheet_html(reminders: list[Reminder], groups: list[Group] | None = None) -> str:
+    """One page with every QR code and its name underneath; groups first."""
     cards = []
-    for reminder in sorted(reminders, key=lambda r: r.name.lower()):
-        if not reminder.tag_ids:
+    items = [(g, True) for g in sorted(groups or [], key=lambda g: g.name.lower())]
+    items += [(r, False) for r in sorted(reminders, key=lambda r: r.name.lower())]
+    for item, is_group in items:
+        if not item.tag_ids:
             continue
-        svg = _svg(reminder.tag_ids[0], xmldecl=False).decode("utf-8")
+        svg = _svg(item.tag_ids[0], xmldecl=False).decode("utf-8")
+        note = '<div class="kind">Group</div>' if is_group else ""
         cards.append(
-            f'<div class="card">{svg}<div class="name">{escape(reminder.name)}</div></div>'
+            f'<div class="card">{svg}<div class="name">{escape(item.name)}</div>{note}</div>'
         )
     body = "\n".join(cards) or "<p>No reminders yet.</p>"
     return f"""<!DOCTYPE html>
@@ -63,6 +66,7 @@ def sheet_html(reminders: list[Reminder]) -> str:
   .card {{ border: 1px dashed #999; padding: 8px; text-align: center; break-inside: avoid; }}
   .card svg {{ width: 100%; height: auto; }}
   .name {{ font-weight: bold; margin-top: 4px; }}
+  .kind {{ font-size: 12px; color: #444; }}
   @media print {{ h1, p.hint {{ display: none; }} body {{ margin: 0; }} }}
 </style>
 </head>
@@ -88,7 +92,7 @@ class QrSheetView(HomeAssistantView):
         hass: HomeAssistant = request.app["hass"]
         manager = hass.data[DOMAIN]
         html = await hass.async_add_executor_job(
-            sheet_html, list(manager.reminders.values())
+            sheet_html, list(manager.reminders.values()), list(manager.groups.values())
         )
         return web.Response(text=html, content_type="text/html")
 

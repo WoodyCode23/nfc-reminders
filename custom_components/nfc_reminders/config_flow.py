@@ -17,8 +17,10 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_ENTRY_TYPE,
+    CONF_GROUP_NAME,
     CONF_INTERVAL,
     CONF_INTERVAL_UNIT,
+    CONF_MEMBERS,
     CONF_NOTIFY_ON_SCAN,
     CONF_REMINDER_NAME,
     CONF_TAG_IDS,
@@ -28,6 +30,7 @@ from .const import (
     DEFAULT_INTERVAL_UNIT,
     DEFAULT_TIMES,
     DOMAIN,
+    ENTRY_TYPE_GROUP,
     ENTRY_TYPE_NOTIFICATIONS,
     ENTRY_TYPE_REMINDER,
     EVENT_TAG_SCANNED,
@@ -79,6 +82,53 @@ def _tag_selector(
     )
 
 
+def _entry_name_from(data: dict[str, Any]) -> str:
+    return data.get(CONF_REMINDER_NAME) or data.get(CONF_GROUP_NAME) or ""
+
+
+def _entry_name(entry: ConfigEntry) -> str:
+    return _entry_name_from(entry.data)
+
+
+def _name_taken(entries: list[ConfigEntry], name: str, *, skip: str | None = None) -> bool:
+    """Reminders and groups share entity ids built from the name, so names must differ."""
+    slug = safe_name(name)
+    return any(
+        safe_name(_entry_name(entry)) == slug
+        for entry in entries
+        if entry.entry_id != skip
+        and entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_NOTIFICATIONS
+    )
+
+
+def _reminder_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
+    """Reminders that can go in a group, by entry id, labelled by name."""
+    return sorted(
+        (
+            selector.SelectOptionDict(value=entry.entry_id, label=entry.title)
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_REMINDER
+        ),
+        key=lambda o: o["label"].lower(),
+    )
+
+
+def _members_selector(options: list[selector.SelectOptionDict]) -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            multiple=True,
+            mode=selector.SelectSelectorMode.LIST,
+        )
+    )
+
+
+def _clean_members(chosen: list[str], options: list[selector.SelectOptionDict]) -> list[str]:
+    """Only reminders that exist, each once, in the order chosen."""
+    valid = {o["value"] for o in options}
+    return list(dict.fromkeys(m for m in chosen if m in valid))
+
+
 def _notify_targets(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
     """Everything that can receive a notification: notify services and notify entities."""
     options = []
@@ -101,31 +151,38 @@ def _notify_targets(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
 
 
 class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Add a reminder: name and interval, then how to get its tag."""
+    """Add a reminder (name, interval, tag) or a group (name, reminders, tag)."""
 
     VERSION = 2
 
     def __init__(self) -> None:
-        self._reminder: dict[str, Any] = {}
+        self._data: dict[str, Any] = {}
         self._scanned_tag: str | None = None
         self._unsub_scan: CALLBACK_TYPE | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="user", menu_options=["reminder", "group"])
+
+    def _name_error(self, name: str) -> str | None:
+        if not name:
+            return "name_required"
+        if _name_taken(self._async_current_entries(), name):
+            return "name_exists"
+        return None
+
+    async def async_step_reminder(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             name = user_input[CONF_REMINDER_NAME].strip()
-            slug = safe_name(name)
-            taken = any(
-                safe_name(entry.data.get(CONF_REMINDER_NAME, "")) == slug
-                for entry in self._async_current_entries()
-                if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_NOTIFICATIONS
-            )
-            if not name or taken:
-                errors["base"] = "name_exists" if taken else "name_required"
+            if error := self._name_error(name):
+                errors["base"] = error
             else:
-                self._reminder = {
+                self._data = {
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_REMINDER,
                     CONF_REMINDER_NAME: name,
                     CONF_INTERVAL: user_input[CONF_INTERVAL],
                     CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
@@ -133,7 +190,7 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_tag()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="reminder",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_REMINDER_NAME): str,
@@ -141,6 +198,40 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_INTERVAL_UNIT, default=DEFAULT_INTERVAL_UNIT
                     ): _UNIT_SELECTOR,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_group(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Name the group and pick its reminders."""
+        options = _reminder_options(self.hass)
+        if not options:
+            return self.async_abort(reason="no_reminders")
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            name = user_input[CONF_GROUP_NAME].strip()
+            members = _clean_members(user_input.get(CONF_MEMBERS, []), options)
+            if error := self._name_error(name):
+                errors["base"] = error
+            elif not members:
+                errors["base"] = "members_required"
+            else:
+                self._data = {
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                    CONF_GROUP_NAME: name,
+                    CONF_MEMBERS: members,
+                }
+                return await self.async_step_tag()
+
+        return self.async_show_form(
+            step_id="group",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_GROUP_NAME): str,
+                    vol.Required(CONF_MEMBERS, default=[]): _members_selector(options),
                 }
             ),
             errors=errors,
@@ -219,12 +310,8 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
     def _create(self, tag_id: str) -> ConfigFlowResult:
         self._stop_listening()
         return self.async_create_entry(
-            title=self._reminder[CONF_REMINDER_NAME],
-            data={
-                CONF_ENTRY_TYPE: ENTRY_TYPE_REMINDER,
-                **self._reminder,
-                CONF_TAG_IDS: [tag_id],
-            },
+            title=_entry_name_from(self._data),
+            data={**self._data, CONF_TAG_IDS: [tag_id]},
         )
 
     @callback
@@ -241,8 +328,11 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        if config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_NOTIFICATIONS:
+        entry_type = config_entry.data.get(CONF_ENTRY_TYPE)
+        if entry_type == ENTRY_TYPE_NOTIFICATIONS:
             return NotificationsOptionsFlow()
+        if entry_type == ENTRY_TYPE_GROUP:
+            return GroupOptionsFlow()
         return ReminderOptionsFlow()
 
 
@@ -290,6 +380,51 @@ class ReminderOptionsFlow(OptionsFlow):
                             CONF_INTERVAL_UNIT, DEFAULT_INTERVAL_UNIT
                         ),
                     ): _UNIT_SELECTOR,
+                    vol.Required(CONF_TAG_IDS, default=current_tags): _tag_selector(
+                        self.hass, multiple=True, extra=current_tags
+                    ),
+                }
+            ),
+            errors=errors,
+        )
+
+
+def _clean_tags(chosen: list[str]) -> list[str]:
+    return list(dict.fromkeys(t for t in (str(x).strip() for x in chosen) if t))
+
+
+class GroupOptionsFlow(OptionsFlow):
+    """Change which reminders are in a group and which tags mark it done."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        entry = self.config_entry
+        current_tags = list(entry.data.get(CONF_TAG_IDS, []))
+        options = _reminder_options(self.hass)
+        current_members = _clean_members(list(entry.data.get(CONF_MEMBERS, [])), options)
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            members = _clean_members(user_input.get(CONF_MEMBERS, []), options)
+            tags = _clean_tags(user_input.get(CONF_TAG_IDS, []))
+            if not members:
+                errors["base"] = "members_required"
+            elif not tags:
+                errors["base"] = "tag_required"
+            else:
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_MEMBERS: members, CONF_TAG_IDS: tags}
+                )
+                return self.async_create_entry(data={})
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_MEMBERS, default=current_members): _members_selector(
+                        options
+                    ),
                     vol.Required(CONF_TAG_IDS, default=current_tags): _tag_selector(
                         self.hass, multiple=True, extra=current_tags
                     ),

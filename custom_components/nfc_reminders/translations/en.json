@@ -2,12 +2,28 @@
   "config": {
     "step": {
       "user": {
+        "title": "NFC Reminders",
+        "description": "What would you like to add?",
+        "menu_options": {
+          "reminder": "A reminder (one chore)",
+          "group": "A group (several reminders marked done together)"
+        }
+      },
+      "reminder": {
         "title": "Add a reminder",
         "description": "Name the chore and say how often it should be done.",
         "data": {
           "reminder_name": "Name",
           "interval": "Every",
           "interval_unit": "Unit"
+        }
+      },
+      "group": {
+        "title": "Add a group",
+        "description": "One tag, QR code or button for the group marks all of its reminders done. Each reminder keeps its own tag too.",
+        "data": {
+          "group_name": "Name",
+          "members": "Reminders in this group"
         }
       },
       "tag": {
@@ -32,13 +48,15 @@
       }
     },
     "error": {
-      "name_exists": "A reminder with this name already exists.",
-      "name_required": "Give the reminder a name.",
+      "name_exists": "A reminder or group with this name already exists.",
+      "name_required": "Give it a name.",
+      "members_required": "Choose at least one reminder.",
       "no_scan": "No scan seen yet. Scan the tag with the Home Assistant app, then press Submit again.",
       "tag_required": "Choose or type a tag."
     },
     "abort": {
-      "already_configured": "Already set up."
+      "already_configured": "Already set up.",
+      "no_reminders": "Add at least one reminder first, then make a group of them."
     }
   },
   "options": {
@@ -49,12 +67,13 @@
           "interval": "Every",
           "interval_unit": "Unit",
           "tag_ids": "Tags that mark this done",
+          "members": "Reminders in this group",
           "times": "Send the overdue overview at",
           "targets": "Send it to",
           "notify_on_scan": "Also send a message when something is marked done"
         },
         "data_description": {
-          "tag_ids": "Add the same tag to several reminders to make it a master tag. You can type a tag id.",
+          "tag_ids": "You can pick a known tag or type a tag id. To mark several reminders with one tag, make a group instead.",
           "times": "24-hour times separated by commas, for example 09:00, 14:00.",
           "targets": "Nothing is sent until at least one is chosen."
         }
@@ -62,7 +81,8 @@
     },
     "error": {
       "invalid_time": "Use 24-hour times separated by commas, for example 09:00, 14:00.",
-      "tag_required": "A reminder needs at least one tag."
+      "tag_required": "It needs at least one tag.",
+      "members_required": "A group needs at least one reminder."
     }
   },
   "selector": {
@@ -97,8 +117,8 @@
       "description": "Marks one or more reminders done, the same as scanning their tag.",
       "fields": {
         "entity_id": {
-          "name": "Reminder",
-          "description": "Any entity of the reminder, for example its progress sensor."
+          "name": "Reminder or group",
+          "description": "Any entity of a reminder or group, for example its status sensor. A group marks all of its reminders."
         },
         "when": {
           "name": "When",
@@ -108,7 +128,7 @@
     },
     "create_qr_sheet": {
       "name": "Create printable QR sheet",
-      "description": "Creates a link, valid for one hour, to a printable page with the QR code of every reminder."
+      "description": "Creates a link, valid for one hour, to a printable page with the QR code of every reminder and group."
     }
   }
 }

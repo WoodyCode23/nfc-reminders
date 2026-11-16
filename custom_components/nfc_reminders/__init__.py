@@ -22,6 +22,7 @@ from .const import (
     CONF_NFC_TAG_ID,
     CONF_TAG_IDS,
     DOMAIN,
+    ENTRY_TYPE_GROUP,
     ENTRY_TYPE_NOTIFICATIONS,
     ENTRY_TYPE_REMINDER,
     SERVICE_CREATE_QR_SHEET,
@@ -51,6 +52,10 @@ def _is_notifications(entry: ConfigEntry) -> bool:
     return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_NOTIFICATIONS
 
 
+def _is_group(entry: ConfigEntry) -> bool:
+    return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_GROUP
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Create the manager, the services and the QR sheet page."""
     manager = Manager(hass)
@@ -61,18 +66,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         entry_ids: list[str] = []
         for entity_id in call.data[ATTR_ENTITY_ID]:
             entity = registry.async_get(entity_id)
-            if (
-                entity is None
-                or entity.platform != DOMAIN
-                or entity.config_entry_id not in manager.reminders
-            ):
+            owner = entity.config_entry_id if entity and entity.platform == DOMAIN else None
+            if owner in manager.reminders:
+                entry_ids.append(owner)
+            elif owner in manager.groups:
+                entry_ids.extend(r.entry_id for r in manager.members_of(owner))
+            else:
                 raise ServiceValidationError(
-                    f"{entity_id} does not belong to an NFC reminder"
+                    f"{entity_id} does not belong to an NFC reminder or group"
                 )
-            if entity.config_entry_id not in entry_ids:
-                entry_ids.append(entity.config_entry_id)
         by = await async_resolve_user(hass, call.context.user_id)
-        await manager.async_mark_done(entry_ids, by=by, when=call.data.get("when"))
+        await manager.async_mark_done(
+            list(dict.fromkeys(entry_ids)), by=by, when=call.data.get("when")
+        )
 
     async def _create_qr_sheet(call: ServiceCall) -> ServiceResponse:
         link = async_announce_sheet(hass)
@@ -124,6 +130,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await manager.async_start()
         async_setup_notifications(hass, manager, entry)
         platforms = NOTIFICATION_PLATFORMS
+    elif _is_group(entry):
+        await manager.async_add_group(entry)
+        platforms = PLATFORMS
     else:
         await manager.async_add_reminder(entry)
         platforms = PLATFORMS
@@ -138,18 +147,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         unloaded = await hass.config_entries.async_unload_platforms(
             entry, NOTIFICATION_PLATFORMS
         )
-        if unloaded and not manager.reminders:
+        if unloaded and not manager.reminders and not manager.groups:
             # on_unload callbacks (which clear notify_settings) run after this returns.
             manager.async_stop()
         return unloaded
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        await manager.async_remove_reminder(entry.entry_id, forget=False)
+        if _is_group(entry):
+            manager.async_remove_group(entry.entry_id)
+        else:
+            await manager.async_remove_reminder(entry.entry_id, forget=False)
     return unloaded
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Forget the stored state of a deleted reminder."""
-    if _is_notifications(entry) or DOMAIN not in hass.data:
+    """Forget the stored state of a deleted reminder. Groups store nothing."""
+    if _is_notifications(entry) or _is_group(entry) or DOMAIN not in hass.data:
         return
     await get_manager(hass).async_remove_reminder(entry.entry_id, forget=True)

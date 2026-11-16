@@ -107,3 +107,27 @@ class Reminder:
             f"{self.name}: {format_elapsed(elapsed, self.unit)} "
             f"(every {_count(self.interval, self.unit)})"
         )
+
+
+_STATUS_RANK = {"good": 0, "warning": 1, "overdue": 2}
+
+
+def worst_status(reminders: list[Reminder], now: datetime) -> str:
+    """The most urgent status among some reminders. "good" when there are none."""
+    return max(
+        (r.status(now) for r in reminders), key=_STATUS_RANK.__getitem__, default="good"
+    )
+
+
+@dataclass
+class Group:
+    """Several reminders that one tag, QR code or button marks done together."""
+
+    entry_id: str
+    name: str
+    member_ids: list[str] = field(default_factory=list)  # reminder entry ids
+    tag_ids: list[str] = field(default_factory=list)
+
+    def members(self, reminders: dict[str, Reminder]) -> list[Reminder]:
+        """Members that still exist, in the order they were chosen."""
+        return [reminders[i] for i in self.member_ids if i in reminders]

@@ -67,6 +67,21 @@ def v2_entry(name, tag_ids, interval=5, unit="days"):
     )
 
 
+def group_entry(name, members, tag_ids):
+    """A group entry; members are reminder entries (or entry ids)."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        title=name,
+        data={
+            CONF_ENTRY_TYPE: "group",
+            "group_name": name,
+            "members": [getattr(m, "entry_id", m) for m in members],
+            CONF_TAG_IDS: list(tag_ids),
+        },
+    )
+
+
 async def setup_entries(hass, *entries):
     """Add entries and set the integration up once."""
     for entry in entries:

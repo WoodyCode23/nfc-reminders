@@ -13,8 +13,10 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_GROUP_NAME,
     CONF_INTERVAL,
     CONF_INTERVAL_UNIT,
+    CONF_MEMBERS,
     CONF_REMINDER_NAME,
     CONF_TAG_IDS,
     DEFAULT_INTERVAL,
@@ -23,7 +25,7 @@ from .const import (
     EVENT_TAG_SCANNED,
     SIGNAL_UPDATE,
 )
-from .reminder import Reminder, safe_name
+from .reminder import Group, Reminder, safe_name
 from .store import ReminderStore
 from .who import async_resolve_device
 
@@ -39,11 +41,12 @@ def get_manager(hass: HomeAssistant) -> Manager:
 
 
 class Manager:
-    """Reminders by entry id, one tag listener, one refresh a minute."""
+    """Reminders and groups by entry id, one tag listener, one refresh a minute."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
         self.reminders: dict[str, Reminder] = {}
+        self.groups: dict[str, Group] = {}
         self.notify_settings: dict | None = None
         self.on_done: DoneHook | None = None
         self._store = ReminderStore(hass)
@@ -88,7 +91,47 @@ class Manager:
         self.reminders[entry.entry_id] = reminder
         if record is None:
             await self._async_import_helpers(reminder)
+        # Groups that hold this reminder refresh their status.
+        async_dispatcher_send(self.hass, SIGNAL_UPDATE)
         return reminder
+
+    async def async_add_group(self, entry: ConfigEntry) -> Group:
+        """Build a group from its entry. Groups store nothing of their own."""
+        await self.async_start()
+        group = Group(
+            entry_id=entry.entry_id,
+            name=entry.data[CONF_GROUP_NAME],
+            member_ids=list(entry.data.get(CONF_MEMBERS, [])),
+            tag_ids=list(entry.data.get(CONF_TAG_IDS, [])),
+        )
+        self.groups[entry.entry_id] = group
+        return group
+
+    @callback
+    def async_remove_group(self, entry_id: str) -> None:
+        self.groups.pop(entry_id, None)
+        self._stop_if_idle()
+
+    def members_of(self, group_id: str) -> list[Reminder]:
+        group = self.groups.get(group_id)
+        return group.members(self.reminders) if group else []
+
+    def entry_ids_for_tag(self, tag_id: str) -> list[str]:
+        """Every reminder a tag marks: its own, plus all members of its groups."""
+        found: list[str] = [
+            entry_id
+            for entry_id, reminder in self.reminders.items()
+            if tag_id in reminder.tag_ids
+        ]
+        for group in self.groups.values():
+            if tag_id in group.tag_ids:
+                found.extend(r.entry_id for r in group.members(self.reminders))
+        return list(dict.fromkeys(found))
+
+    @callback
+    def _stop_if_idle(self) -> None:
+        if not self.reminders and not self.groups and self.notify_settings is None:
+            self.async_stop()
 
     async def async_remove_reminder(self, entry_id: str, *, forget: bool) -> None:
         """Drop a reminder. With forget, its stored state goes too."""
@@ -101,8 +144,8 @@ class Manager:
                 await self._store.async_load()
                 self._loaded = True
             await self._store.async_remove(entry_id)
-        if not self.reminders and self.notify_settings is None:
-            self.async_stop()
+        async_dispatcher_send(self.hass, SIGNAL_UPDATE)
+        self._stop_if_idle()
 
     async def async_mark_done(
         self,
@@ -137,11 +180,7 @@ class Manager:
         tag_id = event.data.get("tag_id")
         if not tag_id:
             return
-        entry_ids = [
-            entry_id
-            for entry_id, reminder in self.reminders.items()
-            if tag_id in reminder.tag_ids
-        ]
+        entry_ids = self.entry_ids_for_tag(tag_id)
         if not entry_ids:
             return
         self.hass.async_create_task(

@@ -10,9 +10,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .entity import ReminderEntity, is_reminder_entry
+from .entity import GroupEntity, ReminderEntity, is_group_entry, is_reminder_entry
 from .manager import get_manager
-from .reminder import safe_name
+from .reminder import safe_name, worst_status
+
+_STATUS_ICONS = {
+    "good": "mdi:check-circle",
+    "warning": "mdi:alert-circle",
+    "overdue": "mdi:alert-circle-outline",
+}
 
 
 async def async_setup_entry(
@@ -20,9 +26,12 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    manager = get_manager(hass)
+    if is_group_entry(entry):
+        async_add_entities([GroupStatusSensor(manager, entry)])
+        return
     if not is_reminder_entry(entry):
         return
-    manager = get_manager(hass)
     async_add_entities(
         [
             LastScanSensor(manager, entry),
@@ -124,11 +133,37 @@ class StatusSensor(ReminderEntity, SensorEntity):
 
     @property
     def icon(self) -> str:
+        return _STATUS_ICONS[self.native_value]
+
+
+class GroupStatusSensor(GroupEntity, SensorEntity):
+    """The most urgent status among the group's reminders."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["good", "warning", "overdue"]
+    _attr_translation_key = "status"
+
+    def __init__(self, manager, entry) -> None:
+        super().__init__(manager, entry)
+        self._attr_name = f"{self.group.name} Status"
+        self._attr_unique_id = f"{entry.entry_id}_status"
+
+    @property
+    def native_value(self) -> str:
+        return worst_status(self.members, dt_util.utcnow())
+
+    @property
+    def icon(self) -> str:
+        return _STATUS_ICONS[self.native_value]
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        now = dt_util.utcnow()
         return {
-            "good": "mdi:check-circle",
-            "warning": "mdi:alert-circle",
-            "overdue": "mdi:alert-circle-outline",
-        }[self.native_value]
+            "members": [r.name for r in self.members],
+            "overdue": [r.name for r in self.members if r.is_overdue(now)],
+            "tag_ids": list(self.group.tag_ids),
+        }
 
 
 class NextDueSensor(ReminderEntity, SensorEntity):

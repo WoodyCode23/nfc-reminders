@@ -11,6 +11,10 @@ CONF_INTERVAL_UNIT = "interval_unit"
 CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_REMINDER = "reminder"
 ENTRY_TYPE_NOTIFICATIONS = "notifications"
+ENTRY_TYPE_GROUP = "group"
+
+CONF_GROUP_NAME = "group_name"
+CONF_MEMBERS = "members"
 
 CONF_TIMES = "times"
 CONF_TARGETS = "targets"

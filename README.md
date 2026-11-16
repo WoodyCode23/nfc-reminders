@@ -7,9 +7,10 @@ Everything is set up from the Home Assistant screens. There are no helpers to cr
 ## What it does
 
 - **Scan to mark done.** Scan the tag (or its QR code) with the Home Assistant app and the reminder resets.
+- **Or just tap.** Every reminder and group has a Mark done button for your dashboards. No tag needed.
 - **QR codes.** Every reminder has a QR code you can print. A sticker works as well as an NFC tag.
 - **Overdue overview.** At the times you choose (09:00 and 14:00 by default) you get one notification listing what is overdue. Nothing overdue means no notification.
-- **Master tags.** One tag can mark several reminders done, for example "all litter boxes".
+- **Groups.** Put several reminders in a group, for example "All Litter Boxes". The group's own tag, QR code or button marks all of them done at once.
 - **Who did it.** The reminder records who scanned, taken from the phone that scanned.
 - **Entities for your own dashboards and automations.** Progress, next due, overdue and more.
 
@@ -36,7 +37,7 @@ Everything is set up from the Home Assistant screens. There are no helpers to cr
 
 ## Add a reminder
 
-1. Go to **Settings**, **Devices and services**, **Add integration**, and pick **NFC Reminders**.
+1. Go to **Settings**, **Devices and services**, **Add integration**, pick **NFC Reminders**, and choose **A reminder**.
 2. Give it a name (for example "Furnace Filter") and say how often it is due (for example every 90 days).
 3. Choose how it gets its tag:
    - **Scan an NFC tag now.** Scan the tag with the Home Assistant app, then press Submit.
@@ -53,9 +54,33 @@ To scan, point the phone's camera at the code and open the link it shows. The Ho
 
 The QR code holds the same link Home Assistant writes to NFC tags, so a QR code and an NFC tag for the same reminder are interchangeable.
 
-## Master tags
+## Mark done without a tag
 
-Open a reminder, choose **Configure**, and add another tag under **Tags that mark this done**. Add the same tag to several reminders and scanning it marks all of them done at once.
+Every reminder has a `button.<name>_mark_done` and every group a `button.<group>_mark_done`. Put them on a dashboard and a tap marks the chore done, the same as a scan, and records who tapped. They work in the Home Assistant app on a phone too.
+
+To avoid marking something done by accident, turn on a confirmation in the card: for example a Tile card with `tap_action: {action: toggle, confirmation: true}`, or a Button card with `tap_action: {action: perform-action, perform_action: button.press, target: {entity_id: button.litter_box_1_mark_done}, confirmation: true}`.
+
+## Groups
+
+A group is several reminders that one tag, one QR code or one button marks done together. Use it for "all litter boxes" or "all bathrooms".
+
+1. Add your reminders first.
+2. Add the integration again and choose **A group**.
+3. Name it and tick its reminders.
+4. Give it a tag the same three ways as a reminder: scan one, pick a known one, or make a new QR code.
+
+Each reminder keeps its own tag, so you can still mark one box on its own. A reminder can be in more than one group. Open the group and choose **Configure** to change its reminders or its tags.
+
+A group gets its own entities:
+
+| Entity | What it shows |
+|---|---|
+| `sensor.<group>_status` | The most urgent status of its reminders: `good`, `warning` or `overdue`. Attributes list the members and which ones are overdue |
+| `binary_sensor.<group>_overdue` | On while any of its reminders is overdue |
+| `button.<group>_mark_done` | Marks every reminder in the group done |
+| `image.<group>_qr_code` | The group's QR code |
+
+Deleting a group never deletes its reminders or their dates. Deleting a reminder simply takes it out of its groups.
 
 ## Overdue overview
 
@@ -117,7 +142,7 @@ The status is `good` below 50 percent of the interval, `warning` from 50 percent
 
 ## Actions
 
-`nfc_reminders.mark_done` marks reminders done, the same as a scan.
+`nfc_reminders.mark_done` marks reminders done, the same as a scan. Give it any entity of a reminder, or of a group to mark all of the group's reminders.
 
 ```yaml
 action: nfc_reminders.mark_done
@@ -127,7 +152,7 @@ data:
   when: "2026-11-01 08:30:00"
 ```
 
-`nfc_reminders.create_qr_sheet` creates the link to the printable QR sheet.
+`nfc_reminders.create_qr_sheet` creates the link to the printable QR sheet. Groups are on it too, marked "Group".
 
 ## Change or delete a reminder
 
@@ -140,6 +165,7 @@ Version 1 kept the last scan in `input_datetime` helpers that you had to create 
 - Your reminders, their entity ids and their history are kept.
 - The first time version 2 starts, it reads each reminder's last scan from `input_datetime.<name>_last_scan` (and who did it from `input_text.<name>_last_cleaned_by`) once.
 - Your helpers and any automations you wrote are never changed. Once you are happy with version 2 you can remove them yourself.
+- If your own automation handled "master" tags that mark several reminders, make a group for each instead and pick that tag under **Pick a tag Home Assistant already knows**.
 - If you had your own automation that set the helpers on a scan, it keeps working but is no longer needed. Switch it off when you turn on the built-in notifications, so you do not get two messages.
 - The `status` attribute now says `overdue` only once the reminder is actually due (it used to say so from 80 percent).
 - A reminder that has never been scanned now shows days since as unknown (it used to show 99).
