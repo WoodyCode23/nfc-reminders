@@ -16,10 +16,12 @@
           "reminder_name": "Name",
           "interval": "Every",
           "interval_unit": "Unit",
-          "remind_after": "Remind after (optional)"
+          "remind_after": "Remind after (optional)",
+          "emoji": "Emoji (optional)"
         },
         "data_description": {
-          "remind_after": "In the same unit. For example every 5 days, remind after 3: it shows as due soon and is in the overview from day 3, and is overdue from day 5."
+          "remind_after": "In the same unit. For example every 5 days, remind after 3: it shows as due soon and is in the overview from day 3, and is overdue from day 5.",
+          "emoji": "Shown before the name in notifications, for example a cat for the litter box."
         }
       },
       "group": {
@@ -78,14 +80,16 @@
           "members": "Reminders in this group",
           "times": "Send the overview at",
           "targets": "Send it to",
-          "notify_on_scan": "Also send a message when something is marked done"
+          "notify_on_scan": "Also send a message when something is marked done",
+          "emoji": "Emoji (optional)"
         },
         "data_description": {
           "reminder_name": "Renaming keeps the entity ids and history.",
           "remind_after": "In the same unit. From this point it shows as due soon and is in the overview. Leave empty for no heads-up.",
           "tag_ids": "You can pick a known tag or type a tag id. To mark several reminders with one tag, make a group instead.",
           "times": "24-hour times separated by commas, for example 09:00, 14:00.",
-          "targets": "Nothing is sent until at least one is chosen."
+          "targets": "Nothing is sent until at least one is chosen.",
+          "emoji": "Shown before the name in notifications. Leave empty for none."
         }
       }
     },

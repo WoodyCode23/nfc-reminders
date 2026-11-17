@@ -25,7 +25,9 @@ from .reminder import Reminder, parse_time
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_TITLE = "NFC Reminders"
+OVERDUE_MARK = "\U0001F534"  # red circle
+SOON_MARK = "\U0001F7E1"  # yellow circle
+DONE_MARK = "✅"  # green check
 
 
 def _things(count: int, what: str) -> str:
@@ -47,19 +49,37 @@ def build_overview(
     if not overdue and not soon:
         return None
     if overdue and soon:
-        title = f"{len(overdue)} overdue, {len(soon)} due soon"
+        title = f"{OVERDUE_MARK} {len(overdue)} overdue, {SOON_MARK} {len(soon)} due soon"
     elif overdue:
-        title = _things(len(overdue), "overdue")
+        title = f"{OVERDUE_MARK} {_things(len(overdue), 'overdue')}"
     else:
-        title = _things(len(soon), "due soon")
-    lines = [r.overview_line(now) for r in overdue]
-    lines += [r.due_soon_line(now) for r in soon]
+        title = f"{SOON_MARK} {_things(len(soon), 'due soon')}"
+    # Each line leads with the reminder's own emoji, or a red or yellow dot when it has none.
+    lines = [f"{r.emoji or OVERDUE_MARK} {r.overview_line(now)}" for r in overdue]
+    lines += [f"{r.emoji or SOON_MARK} {r.due_soon_line(now)}" for r in soon]
     return title, "\n".join(lines)
 
 
-def build_scan_message(names: list[str], by: str | None) -> tuple[str, str]:
-    """One message for one scan, however many reminders it marked."""
-    return SCAN_TITLE, f"{by or 'Someone'} marked {', '.join(names)} done"
+def _clock(when: datetime) -> str:
+    """Local time like "2:05 PM"."""
+    return dt_util.as_local(when).strftime("%I:%M %p").lstrip("0")
+
+
+def build_scan_message(
+    done: list[Reminder], by: str | None, when: datetime, label: str | None = None
+) -> tuple[str, str]:
+    """One message for one scan, however many reminders it marked.
+
+    label is the group's name when a group's tag or button did it.
+    """
+    if label:
+        title = f"{DONE_MARK} {label} done"
+    elif len(done) == 1:
+        title = f"{DONE_MARK} {done[0].name} done"
+    else:
+        title = f"{DONE_MARK} {len(done)} things done"
+    names = ", ".join(r.label for r in done)
+    return title, f"{names}\nMarked done by {by or 'someone'} at {_clock(when)}"
 
 
 async def async_send(
@@ -152,10 +172,13 @@ def async_setup_notifications(hass: HomeAssistant, manager, entry: ConfigEntry) 
 
     if options[CONF_NOTIFY_ON_SCAN]:
 
-        async def _on_done(done: list[Reminder], by: str | None) -> None:
+        async def _on_done(
+            done: list[Reminder], by: str | None, label: str | None = None
+        ) -> None:
             if targets:
+                when = done[0].last_done or dt_util.utcnow()
                 await async_send(
-                    hass, targets, *build_scan_message([r.name for r in done], by)
+                    hass, targets, *build_scan_message(done, by, when, label)
                 )
 
         manager.on_done = _on_done

@@ -60,7 +60,9 @@ class GroupMarkDoneButton(GroupEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self._manager.async_mark_done(
-            [r.entry_id for r in self.members], by=await _who_pressed(self)
+            [r.entry_id for r in self.members],
+            by=await _who_pressed(self),
+            label=self.reminder_group.name,
         )
 
 

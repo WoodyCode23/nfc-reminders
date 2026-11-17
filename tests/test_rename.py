@@ -74,7 +74,8 @@ async def test_messages_use_the_new_name(hass):
     await rename(hass, e, "Stairs Left")
     hass.bus.async_fire("tag_scanned", {"tag_id": "tag-1"})
     await hass.async_block_till_done()
-    assert calls[-1].data["message"] == "Someone marked Stairs Left done"
+    assert calls[-1].data["title"] == "✅ Stairs Left done"
+    assert calls[-1].data["message"].startswith("Stairs Left\nMarked done by someone at ")
 
 
 async def test_migrated_entry_gets_its_slug(hass):

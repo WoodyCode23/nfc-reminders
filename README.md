@@ -109,11 +109,23 @@ Nothing is sent until you choose at least one place to send it. Home Assistant s
 The overview looks like this:
 
 ```
-2 overdue, 1 due soon
-Furnace Filter: 95 days (every 90 days)
-Master Bathroom: 21 days (every 20 days)
-Litter Box 1: due in 2 days
+🔴 2 overdue, 🟡 1 due soon
+🔴 Furnace Filter: 95 days (every 90 days)
+🔴 Master Bathroom: 21 days (every 20 days)
+🐱 Litter Box 1: due in 2 days
 ```
+
+Each line starts with a red dot (overdue) or a yellow dot (due soon). Give a reminder its own **Emoji** when you add it, or under its **Configure**, and that is shown instead.
+
+When "send a message when something is marked done" is on, a scan or a tap sends:
+
+```
+✅ Litter Box 1 done
+🐱 Litter Box 1
+Marked done by Ryan at 2:05 PM
+```
+
+A group's tag or button announces the group by name, for example "✅ All Litter Boxes done".
 
 Overdue chores come first, most overdue at the top. Chores past their **Remind after** point come next, soonest first. A reminder that has never been marked done is never counted.
 

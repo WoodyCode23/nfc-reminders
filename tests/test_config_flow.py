@@ -67,6 +67,7 @@ async def test_scan_a_tag_now(hass):
         "interval": 5,
         "interval_unit": "days",
         "remind_after": None,
+        "emoji": "",
         "slug": "litter_box_1",
         "tag_ids": ["scanned-tag"],
     }

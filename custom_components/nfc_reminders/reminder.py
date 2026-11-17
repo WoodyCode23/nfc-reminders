@@ -58,10 +58,16 @@ class Reminder:
     last_done_by: str | None = None
     remind_after: int | None = None  # same unit as interval; heads-up before it is due
     slug: str = ""  # fixed at creation; see CONF_SLUG
+    emoji: str = ""  # optional, shown before the name in notifications
 
     def __post_init__(self) -> None:
         if not self.slug:
             self.slug = safe_name(self.name)
+
+    @property
+    def label(self) -> str:
+        """The name, with the reminder's emoji in front when it has one."""
+        return f"{self.emoji} {self.name}" if self.emoji else self.name
 
     @property
     def period(self) -> timedelta:
