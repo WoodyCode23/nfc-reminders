@@ -8,6 +8,7 @@ CONF_TAG_IDS = "tag_ids"
 CONF_INTERVAL = "interval"
 CONF_INTERVAL_UNIT = "interval_unit"
 CONF_REMIND_AFTER = "remind_after"
+CONF_EMOJI = "emoji"  # optional, shown before the name in notifications
 # The name a reminder was first created with, as a slug. The three sensors kept from version 1
 # build their unique ids from it, so renaming a reminder never orphans its entities or history.
 CONF_SLUG = "slug"

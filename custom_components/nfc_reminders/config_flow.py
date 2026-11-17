@@ -16,6 +16,7 @@ from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_EMOJI,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_INTERVAL,
@@ -82,6 +83,11 @@ def _tag_selector(
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
+
+
+def _clean_emoji(value: Any) -> str:
+    """An emoji (or a short word) to show before the name. Empty when not given."""
+    return str(value or "").strip()[:8]
 
 
 def _entry_name_from(data: dict[str, Any]) -> str:
@@ -205,6 +211,7 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_INTERVAL: user_input[CONF_INTERVAL],
                     CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
                     CONF_REMIND_AFTER: remind_after or None,
+                    CONF_EMOJI: _clean_emoji(user_input.get(CONF_EMOJI)),
                     CONF_SLUG: safe_name(name),
                 }
                 return await self.async_step_tag()
@@ -219,6 +226,7 @@ class NFCRemindersConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_INTERVAL_UNIT, default=DEFAULT_INTERVAL_UNIT
                     ): _UNIT_SELECTOR,
                     vol.Optional(CONF_REMIND_AFTER): _INTERVAL,
+                    vol.Optional(CONF_EMOJI): str,
                 }
             ),
             errors=errors,
@@ -395,6 +403,7 @@ class ReminderOptionsFlow(OptionsFlow):
                         CONF_INTERVAL: user_input[CONF_INTERVAL],
                         CONF_INTERVAL_UNIT: user_input[CONF_INTERVAL_UNIT],
                         CONF_REMIND_AFTER: remind_after,
+                        CONF_EMOJI: _clean_emoji(user_input.get(CONF_EMOJI)),
                         CONF_TAG_IDS: tags,
                     },
                 )
@@ -421,6 +430,10 @@ class ReminderOptionsFlow(OptionsFlow):
                         CONF_REMIND_AFTER,
                         description={"suggested_value": entry.data.get(CONF_REMIND_AFTER)},
                     ): _INTERVAL,
+                    vol.Optional(
+                        CONF_EMOJI,
+                        description={"suggested_value": entry.data.get(CONF_EMOJI) or None},
+                    ): str,
                     vol.Required(CONF_TAG_IDS, default=current_tags): _tag_selector(
                         self.hass, multiple=True, extra=current_tags
                     ),

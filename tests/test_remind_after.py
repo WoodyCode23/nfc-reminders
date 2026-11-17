@@ -55,7 +55,7 @@ def test_due_soon_line_rounds_up():
 
 def test_overview_due_soon_only():
     title, body = build_overview([litter(3.5), litter(1, name="Upstairs")], NOW)
-    assert title == "1 thing due soon" and body == "Stairs Left: due in 2 days"
+    assert title == "🟡 1 thing due soon" and body == "🟡 Stairs Left: due in 2 days"
 
 
 def test_overview_overdue_and_due_soon():
@@ -68,11 +68,11 @@ def test_overview_overdue_and_due_soon():
         ],
         NOW,
     )
-    assert title == "1 overdue, 2 due soon"
+    assert title == "🔴 1 overdue, 🟡 2 due soon"
     assert body.splitlines() == [
-        "Stairs Left: 72 days (every 5 days)",
-        "Upstairs: due in 1 day",  # soonest first
-        "Basement: due in 2 days",
+        "🔴 Stairs Left: 72 days (every 5 days)",
+        "🟡 Upstairs: due in 1 day",  # soonest first
+        "🟡 Basement: due in 2 days",
     ]
 
 
@@ -107,8 +107,8 @@ async def test_heads_up_overview_is_sent_at_the_set_time(hass, freezer):
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(calls) == 1
-    assert calls[0].data["title"] == "1 thing due soon"
-    assert calls[0].data["message"] == "Litter Box 1: due in 2 days"
+    assert calls[0].data["title"] == "🟡 1 thing due soon"
+    assert calls[0].data["message"] == "🟡 Litter Box 1: due in 2 days"
 
 
 async def add_reminder(hass, **values):

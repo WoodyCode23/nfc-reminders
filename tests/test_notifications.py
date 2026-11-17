@@ -59,7 +59,7 @@ def test_overview_none_when_nothing_overdue():
 def test_overview_skips_never_done():
     assert build_overview([rem("A", None, 5)], NOW) is None
     title, body = build_overview([rem("A", None, 5), rem("B", 9, 5)], NOW)
-    assert title == "1 thing overdue" and body == "B: 9 days (every 5 days)"
+    assert title == "🔴 1 thing overdue" and body == "🔴 B: 9 days (every 5 days)"
 
 
 def test_overview_title_and_order():
@@ -67,19 +67,28 @@ def test_overview_title_and_order():
     title, body = build_overview(
         [rem("Master Bathroom", 253, 20), rem("OK", 1, 5), rem("Litter Box 1", 72, 5)], NOW
     )
-    assert title == "2 things overdue"
+    assert title == "🔴 2 things overdue"
     assert body.splitlines() == [
-        "Litter Box 1: 72 days (every 5 days)",
-        "Master Bathroom: 253 days (every 20 days)",
+        "🔴 Litter Box 1: 72 days (every 5 days)",
+        "🔴 Master Bathroom: 253 days (every 20 days)",
     ]
 
 
 def test_scan_message():
-    assert build_scan_message(["Litter Box 1", "Litter Box 2"], "Ryan") == (
-        "NFC Reminders",
-        "Ryan marked Litter Box 1, Litter Box 2 done",
+    when = datetime(2026, 11, 15, 19, 5, tzinfo=UTC)  # 2:05 PM in New York
+    cat = "\U0001F431"
+    one = Reminder("a", "Stairs Left", [], 5, "days", emoji=cat)
+    two = Reminder("b", "Furnace Filter", [], 30, "days")
+    assert build_scan_message([one], "Ryan", when) == (
+        "✅ Stairs Left done",
+        f"{cat} Stairs Left\nMarked done by Ryan at 2:05 PM",
     )
-    assert build_scan_message(["Furnace Filter"], None)[1] == "Someone marked Furnace Filter done"
+    assert build_scan_message([one, two], None, when) == (
+        "✅ 2 things done",
+        f"{cat} Stairs Left, Furnace Filter\nMarked done by someone at 2:05 PM",
+    )
+    # A group's tag or button announces itself by the group's name.
+    assert build_scan_message([one, two], "Marisa", when, "All Chores")[0] == "✅ All Chores done"
 
 
 async def test_notifications_entry_auto_created_once(hass):
@@ -128,10 +137,10 @@ async def test_overview_sent_at_configured_times(hass, freezer):
     assert len(calls) == 0
     await at_local(hass, freezer, "2026-11-15 09:00:00")
     assert len(calls) == 1
-    assert calls[0].data["title"] == "2 things overdue"
+    assert calls[0].data["title"] == "🔴 2 things overdue"
     assert calls[0].data["message"].splitlines() == [
-        "Litter Box 1: 71 days (every 5 days)",
-        "Master Bathroom: 252 days (every 20 days)",
+        "🔴 Litter Box 1: 71 days (every 5 days)",
+        "🔴 Master Bathroom: 252 days (every 20 days)",
     ]
     await at_local(hass, freezer, "2026-11-15 09:01:00")
     assert len(calls) == 1
@@ -177,7 +186,7 @@ async def test_entity_target_uses_send_message(hass, freezer):
     await at_local(hass, freezer, "2026-11-15 09:00:00")
     assert len(calls) == 1
     assert calls[0].data["entity_id"] == "notify.iphone"
-    assert calls[0].data["title"] == "1 thing overdue"
+    assert calls[0].data["title"] == "🔴 1 thing overdue"
 
 
 async def test_scan_notification_off_by_default(hass):
@@ -199,7 +208,8 @@ async def test_scan_notification_is_one_message_for_a_master_tag(hass):
     hass.bus.async_fire("tag_scanned", {"tag_id": "master"})
     await hass.async_block_till_done()
     assert len(calls) == 1
-    assert calls[0].data["message"] == "Someone marked Litter Box 1, Litter Box 2 done"
+    assert calls[0].data["title"] == "✅ 2 things done"
+    assert calls[0].data["message"].startswith("Litter Box 1, Litter Box 2\nMarked done by someone at ")
 
 
 async def test_failed_scan_message_does_not_lose_the_scan(hass):

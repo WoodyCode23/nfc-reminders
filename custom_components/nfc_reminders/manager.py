@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_EMOJI,
     CONF_GROUP_NAME,
     CONF_INTERVAL,
     CONF_INTERVAL_UNIT,
@@ -35,7 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 
 _NO_NAME = ("", "unknown", "unavailable")
 
-DoneHook = Callable[[list[Reminder], str | None], Awaitable[None]]
+# (reminders marked, who did it, the group's name when a group did it)
+DoneHook = Callable[[list[Reminder], str | None, str | None], Awaitable[None]]
 
 
 def get_manager(hass: HomeAssistant) -> Manager:
@@ -86,6 +88,7 @@ class Manager:
             unit=data.get(CONF_INTERVAL_UNIT, DEFAULT_INTERVAL_UNIT),
             remind_after=data.get(CONF_REMIND_AFTER) or None,
             slug=data.get(CONF_SLUG) or "",
+            emoji=data.get(CONF_EMOJI) or "",
         )
         record = self._store.get(entry.entry_id)
         if record is not None:
@@ -157,8 +160,12 @@ class Manager:
         *,
         by: str | None,
         when: datetime | None = None,
+        label: str | None = None,
     ) -> None:
-        """Mark reminders done now (or at `when`), save, and tell everyone."""
+        """Mark reminders done now (or at `when`), save, and tell everyone.
+
+        label names the group when a group's tag or button did it; it only shapes the message.
+        """
         when = dt_util.as_utc(when) if when else dt_util.utcnow()
         done: list[Reminder] = []
         for entry_id in entry_ids:
@@ -175,7 +182,7 @@ class Manager:
         async_dispatcher_send(self.hass, SIGNAL_UPDATE)
         if self.on_done is not None:
             try:
-                await self.on_done(done, by)
+                await self.on_done(done, by, label)
             except Exception:  # noqa: BLE001 - a failed message must not undo the scan
                 _LOGGER.exception("Could not send the scan notification")
 
@@ -187,13 +194,17 @@ class Manager:
         entry_ids = self.entry_ids_for_tag(tag_id)
         if not entry_ids:
             return
+        # A scan of a group's own tag is announced under the group's name.
+        label = next((g.name for g in self.groups.values() if tag_id in g.tag_ids), None)
         self.hass.async_create_task(
-            self._async_scan(entry_ids, event.data.get("device_id"))
+            self._async_scan(entry_ids, event.data.get("device_id"), label)
         )
 
-    async def _async_scan(self, entry_ids: list[str], device_id: str | None) -> None:
+    async def _async_scan(
+        self, entry_ids: list[str], device_id: str | None, label: str | None = None
+    ) -> None:
         by = await async_resolve_device(self.hass, device_id)
-        await self.async_mark_done(entry_ids, by=by)
+        await self.async_mark_done(entry_ids, by=by, label=label)
 
     @callback
     def _handle_tick(self, now: datetime) -> None:

@@ -193,7 +193,8 @@ async def test_one_scan_message_for_the_whole_group(hass):
     await setup_entries(hass, notif, *two, group_entry("Both Boxes", two, ["g"]))
     await scan(hass, "g")
     assert len(calls) == 1
-    assert calls[0].data["message"] == "Someone marked Litter Box 1, Litter Box 2 done"
+    assert calls[0].data["title"] == "✅ Both Boxes done"  # the group's name, not a count
+    assert calls[0].data["message"].startswith("Litter Box 1, Litter Box 2\nMarked done by someone at ")
 
 
 async def test_a_reminder_in_two_groups_is_marked_once(hass):
